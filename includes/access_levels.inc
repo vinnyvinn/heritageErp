@@ -190,6 +190,7 @@ $security_areas =array(
 	'SA_LOCATIONTRANSFER' => array(SS_ITEMS|4, _("Inventory location transfers")),
 	'SA_INVENTORYADJUSTMENT' => array(SS_ITEMS|5, _("Inventory adjustments")),
 	'SA_INVENTORYREQUEST' => array(SS_ITEMS|6, _("Inventory requests")),
+	'SA_INVENTORYISSUE' => array(SS_ITEMS|7, _("Inventory issue")),
 
 	'SA_REORDER' => array(SS_ITEMS_A|1, _("Reorder levels")),
 	'SA_ITEMSANALYTIC' => array(SS_ITEMS_A|2, _("Items analytical reports and inquiries")),

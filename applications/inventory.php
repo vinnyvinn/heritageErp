@@ -27,7 +27,7 @@ class inventory_app extends application
         $this->add_lapp_function(0, _("Inventory Request"),
                     "inventory/inventory_request.php?NewRequest=1", 'SA_INVENTORYREQUEST', MENU_TRANSACTION);
         $this->add_lapp_function(0, _("View Inventory Request"),
-            "inventory/inquiry/view_inventory_request.php?", 'SA_INVENTORYREQUEST', MENU_TRANSACTION);
+            "inventory/inquiry/view_inventory_request.php?", 'SA_INVENTORYISSUE', MENU_TRANSACTION);
 
 		$this->add_module(_("Inquiries and Reports"));
 		$this->add_lapp_function(1, _("Inventory Item &Movements"),
