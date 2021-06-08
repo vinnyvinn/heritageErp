@@ -455,7 +455,7 @@ function get_sql_for_grn_search($from, $to, $supplier_id=ALL_TEXT, $location=ALL
 
     $sql .= " GROUP BY line.po_detail_item";
 
-    error_log(print_r(db_fetch(db_query($sql)),true));
+    error_log(print_r($sql,true));
     return $sql;
 }
 
@@ -501,51 +501,34 @@ function po_detail($inv_item){
 
     return db_fetch($query);
 }
+function get_sale_order($order){
+    $sql = "SELECT * FROM ".TB_PREF."sales_orders WHERE order_no=".db_escape($order);
+    $query = db_query($sql,"Failed to get record item.");
+
+    return db_fetch($query);
+}
 function get_sql_for_sales_details($order_id)
 {
-        $order_value = 'Sum(line.unit_price*line.quantity*(1-line.discount_percent))+freight_cost';
-
-    $sql = "SELECT 
-			sorder.order_no,
+    $sql = "SELECT distinct 
+            lot.id as lot_id,    
+            lot.lot_number,    
+            lot.qty_out,    
+            lot.po_detail_item,    
+            lot.expiry_date,    
 			line.stk_code,
 			line.description,			
-			line.qty_sent,
-			sorder.reference,
-			debtor.name,
-			branch.br_name,"
-            ."sorder.ord_date,
-			sorder.delivery_date,
-			sorder.deliver_to,
-			$order_value AS OrderValue,
-			sorder.type,
-			debtor.curr_code,
-			Sum(line.qty_sent) AS TotDelivered,
-			Sum(line.quantity) AS TotQuantity,
-			Sum(line.invoiced) AS TotInvoiced,
-			alloc,
-			prep_amount,
-			allocs.ord_payments,
-			inv.inv_payments,
-			sorder.total,
-			line.id as inv_item,
-			sorder.trans_type,
-			lot.po_detail_item
-		FROM ".TB_PREF."sales_order_details as line
-		JOIN  ".TB_PREF."sales_orders as sorder ON sorder.order_no = line.order_no
-		JOIN  ".TB_PREF."lot_transactions as lot ON lot.item_code = line.stk_code
-		LEFT JOIN (SELECT trans_no_to, sum(amt) ord_payments FROM ".TB_PREF."cust_allocations WHERE trans_type_to=".ST_SALESORDER." GROUP BY trans_no_to)
-			 allocs ON sorder.trans_type=".ST_SALESORDER." AND allocs.trans_no_to=sorder.order_no
-		LEFT JOIN (SELECT order_, sum(prep_amount) inv_payments	FROM ".TB_PREF."debtor_trans WHERE type=".ST_SALESINVOICE." GROUP BY order_)
-				 inv ON sorder.trans_type=".ST_SALESORDER." AND inv.order_=sorder.order_no,"
-        .TB_PREF."debtors_master as debtor, "
-        .TB_PREF."cust_branch as branch
-			WHERE sorder.order_no = line.order_no
-			AND sorder.trans_type = line.trans_type
-			AND line.id = ".db_escape($order_id)."
-			AND sorder.debtor_no = debtor.debtor_no
-			AND sorder.branch_code = branch.branch_code
+			line.qty_sent,                
+			line.order_no,                
+			line.id as inv_item		
+		FROM ".TB_PREF."lot_transactions as lot
+		JOIN  ".TB_PREF."sales_order_details as line ON lot.item_code = line.stk_code	
+			WHERE line.order_no = ".db_escape($order_id)."
 			AND line.qty_sent > 0
-			AND debtor.debtor_no = branch.debtor_no";
+			AND lot.type ='grv'
+			AND lot.qty_out = 0
+			";
+
+
 
 //    if ($trans_type == ST_SALESQUOTE && !check_value('show_all'))
 //        $sql .= " AND sorder.delivery_date >= '".date2sql(Today())."' AND line.qty_sent=0"; // show only outstanding, not realized quotes
@@ -556,12 +539,15 @@ function get_sql_for_sales_details($order_id)
 
    // $sql .= " GROUP BY line.id";
 
+    //error_log(print_r($sql,true));
+//    error_log('starting..');
 //    $q = db_query($sql,'Query error');
 //    while ($res = db_fetch($q)){
 //        error_log(print_r($res,true));
 //    }
+//    error_log('ending..');
 
-    $query = db_query($sql,'failed');
+    return $query = db_query($sql,'failed');
     //error_log(print_r(db_fetch($query),true));
-    return db_fetch($query);
+
 }

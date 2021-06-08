@@ -102,9 +102,9 @@ function write_credit_note(&$credit_note, $write_off_acc)
 
 	$total = 0;
 	foreach ($credit_note->line_items as $credit_line) {
-
-		if ($credit_invoice && $credit_line->qty_dispatched!=$credit_line->qty_old ) {
-			update_parent_line(ST_CUSTCREDIT, $credit_line->src_id,($credit_line->qty_dispatched
+        $qty = isset(get_box_type($credit_line->box_id)['quantity']) ? ceil($credit_line->qty_dispatched/get_box_type($credit_line->box_id)['quantity']) : $credit_line->qty_dispatched;
+		if ($credit_invoice && $qty!=$credit_line->qty_old ) {
+			update_parent_line(ST_CUSTCREDIT, $credit_line->src_id,($qty
 					-$credit_line->qty_old));
 		}
 
@@ -117,7 +117,7 @@ function write_credit_note(&$credit_note, $write_off_acc)
 		$credit_line->standard_cost = get_unit_cost($credit_line->stock_id); 
 		
 		write_customer_trans_detail_item(ST_CUSTCREDIT, $credit_no, $credit_line->stock_id,
-			$credit_line->item_description, $credit_line->qty_dispatched,
+			$credit_line->item_description, $qty,
 			$credit_line->line_price(), $line_tax, $credit_line->discount_percent,
 			$credit_line->standard_cost, $credit_line->src_id, $trans_no==0 ? 0:  $credit_line->id);
 
@@ -188,10 +188,10 @@ function add_credit_movements_item(&$credit_note, &$credit_line,
 	$reference = _("Return");
 	if ($credited_invoice) 
 		$reference .= ' '._("Ex Inv:").' ' . $credited_invoice;
-
+    $qty = isset(get_box_type($credit_line->box_id)['quantity']) ? ceil($credit_line->qty_dispatched/get_box_type($credit_line->box_id)['quantity']) : $credit_line->qty_dispatched;
     add_stock_move(ST_CUSTCREDIT,  $credit_line->stock_id,
 	    key($credit_note->trans_no), $credit_note->Location,
-   		$credit_note->document_date, $reference, $credit_line->qty_dispatched,
+   		$credit_note->document_date, $reference, $qty,
         $curr_std_cost, $price);
 }
 
@@ -212,12 +212,12 @@ function add_gl_trans_credit_costs($order, $order_line, $credit_no, $date_,
 	$total = 0;
 	/* insert gl_trans to credit stock and debit cost of sales at standard cost*/
 	$unit_cost = get_unit_cost($order_line->stock_id);
+    $qty = isset(get_box_type($order_line->box_id)['quantity']) ? ceil($order_line->qty_dispatched/get_box_type($order_line->box_id)['quantity']) : $order_line->qty_dispatched;
+	if ($stock_gl_codes['mb_flag'] != 'D' && $unit_cost != 0) {		/*first the cost of sales entry*/
 
-	if ($stock_gl_codes['mb_flag'] != 'D' && $unit_cost != 0) {
-		/*first the cost of sales entry*/
 
 		$total += add_gl_trans_std_cost(ST_CUSTCREDIT, $credit_no, $date_, $stock_gl_codes["cogs_account"],
-			$dim, $dim2, "", -($unit_cost * $order_line->qty_dispatched),
+			$dim, $dim2, "", -($unit_cost * $qty),
 			PT_CUSTOMER, $order->customer_id,
 			"The cost of sales GL posting could not be inserted");
 
@@ -230,7 +230,7 @@ function add_gl_trans_credit_costs($order, $order_line, $credit_no, $date_,
 		}
 
 		$total += add_gl_trans_std_cost(ST_CUSTCREDIT, $credit_no, $date_, $stock_entry_account, 0, 0,
-			"", ($unit_cost * $order_line->qty_dispatched),
+			"", ($unit_cost * $qty),
 			PT_CUSTOMER, $order->customer_id,
 			"The stock side (or write off) of the cost of sales GL posting could not be inserted");
 
@@ -255,13 +255,13 @@ function add_gl_trans_credit_costs($order, $order_line, $credit_no, $date_,
 		else
 			$sales_account = $stock_gl_codes['sales_account'];
 		$total += add_gl_trans_customer(ST_CUSTCREDIT, $credit_no, $date_, $sales_account, $dim, $dim2,
-			($line_taxfree_price * $order_line->qty_dispatched), $order->customer_id,
+			($line_taxfree_price * $qty), $order->customer_id,
 			"The credit note GL posting could not be inserted");
 
 		if ($order_line->discount_percent != 0) {
 
 			$total += add_gl_trans_customer(ST_CUSTCREDIT, $credit_no, $date_, $branch_data["sales_discount_account"],
-				$dim, $dim2, -($line_taxfree_price * $order_line->qty_dispatched * $order_line->discount_percent),
+				$dim, $dim2, -($line_taxfree_price * $qty * $order_line->discount_percent),
 				$order->customer_id,
 				"The credit note discount GL posting could not be inserted");
 

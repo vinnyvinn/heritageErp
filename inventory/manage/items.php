@@ -187,7 +187,7 @@ if (isset($_POST['addupdate']))
 	$input_error = 0;
 	if ($upload_file == 'No')
 		$input_error = 1;
-    $_POST['NewStockID'] = $_POST['code'] ;
+    $_POST['NewStockID'] = $_POST['stock_id'] ;
 	if (strlen($_POST['description']) == 0)
 	{
 		$input_error = 1;
@@ -240,8 +240,10 @@ if (isset($_POST['addupdate']))
 		
 		if (!$new_item) 
 		{ /*so its an existing one */
-		      update_item($_POST['NewStockID'], $_POST['description'],$_POST['type_id'],get_type($_POST['type_id'])['name'],
-				$_POST['long_description'], $_POST['category_id'], 
+//		    error_log(print_r($_POST,true));
+//		    exit();
+		      update_item($_POST['NewStockID'], $_POST['description'],
+				$_POST['long_description'], $_POST['category_id'],
 				$_POST['tax_type_id'], get_post('units'),
 				get_post('fixed_asset') ? 'F' : get_post('mb_flag'), $_POST['sales_account'],
 				$_POST['inventory_account'], $_POST['cogs_account'],
@@ -263,15 +265,17 @@ if (isset($_POST['addupdate']))
 		{ //it is a NEW part
 
 		     $code = $_POST['code'];
-		     if (isset(get_item_by_code($_POST['code'])['code'])){
-		         $next = getNextNo()+1;
-		         $code = $_POST['code'].''.$next;
-		         updateNextNo(getNextNo()+1);
+		     if ($_POST['item_type_id'] == 1) {
+                 if (isset(get_item_by_code($_POST['code'])['code'])) {
+                     $next = getNextNo() + 1;
+                     $code = $_POST['code'] . '' . $next;
+                     updateNextNo(getNextNo() + 1);
+                 }
              }
 
 			add_item($code, $_POST['description'],
                 $code,  $_POST['variety_id'], $_POST['color_id'],$_POST['size_id'],$_POST['type_id'],get_type($_POST['type_id'])['name'],
-				$_POST['long_description'],
+                $_POST['item_type_id'],$_POST['long_description'],
                 $_POST['category_id'], $_POST['tax_type_id'],
 				$_POST['units'], get_post('fixed_asset') ? 'F' : get_post('mb_flag'), $_POST['sales_account'],
 				$_POST['inventory_account'], $_POST['cogs_account'],
@@ -347,12 +351,16 @@ function item_settings(&$stock_id, $new_item)
 	//------------------------------------------------------------------------------------
 
 
-	if ($new_item) 
+	if ($new_item)
 	{
-        variety_list_row(_("Variety:"), 'variety_id', null, false,$new_item);
-        type_list_row(_("Type:"), 'type_id', null, false,$new_item);
-        color_list_row(_("Color:"), 'color_id', null, false,$new_item);
-        size_list_row(_("Size:"), 'size_id', null, false,$new_item);
+        item_type_list_row(_("Item Nature:"), 'item_type_id', null, false,$new_item);
+        if (isset($_POST['item_type_id']) && $_POST['item_type_id']==2){
+        }else {
+            variety_list_row(_("Variety:"), 'variety_id', null, false, $new_item);
+            type_list_row(_("Type:"), 'type_id', null, false, $new_item);
+            color_list_row(_("Color:"), 'color_id', null, false, $new_item);
+            size_list_row(_("Size:"), 'size_id', null, false, $new_item);
+        }
 
         if (isset($_POST['variety_id'])){
             $variety = get_variety($_POST['variety_id'])['name'];
@@ -360,6 +368,10 @@ function item_settings(&$stock_id, $new_item)
             $size = get_size($_POST['size_id'])['name'];
             $_POST['description'] = $variety.'-'.$color.'-'.$size;
             $_POST['code'] = str_replace(' ','',substr($variety,0,2).''.substr($color,0,2).' '.substr($size,0,2));
+        }
+        if (isset($_POST['item_type_id']) && $_POST['item_type_id']==2){
+            $_POST['description'] = '';
+            $_POST['code'] = '';
         }
 		$tmpCodeID=null;
 		$post_label = null;
@@ -372,28 +384,32 @@ function item_settings(&$stock_id, $new_item)
 				$_POST['NewStockID'] = $tmpCodeID;
 			}
 		}
+        if (isset($_POST['item_type_id']) && $_POST['item_type_id']==2){
+            text_row(_("Item Code:"), 'code', $_POST['code'], 21, 20, null, "");
+        }else{
+            text_row_disabled(_("Item Code:"), 'code', $_POST['code'], 21, 20, null, "");
+        }
 
-		 text_row_disabled(_("Item Code:"), 'code', $_POST['code'], 21, 20, null, "");
 		$_POST['inactive'] = 0;
 	}
 
 	else 
 	{ // Must be modifying an existing item
 		if (get_post('NewStockID') != get_post('stock_id') || get_post('addupdate')) { // first item display
-
 			$_POST['NewStockID'] = $_POST['stock_id'];
 			set_edit($_POST['stock_id']);
 		}
+        if (isset($_POST['item_type_id']) && $_POST['item_type_id']==1){
+            label_row(_("Variety:"),get_variety($_POST['variety_id'])['name']);
+            label_row(_("Type:"), get_flower_type($_POST['type_id'])['name']);
+            label_row(_("Color:"),get_color($_POST['color_id'])['name']);
+            label_row(_("Size:"),get_size($_POST['size_id'])['name']);
+        }
 
-		label_row(_("Variety:"),get_variety($_POST['variety_id'])['name']);
-		label_row(_("Color:"),get_color($_POST['color_id'])['name']);
-		label_row(_("Size:"),get_size($_POST['size_id'])['name']);
 		label_row(_("Item Code:"),$_POST['code']);
 		hidden('NewStockID', $_POST['NewStockID']);
-        type_list_row(_("Type:"), 'type_id', null, false,'');
 		set_focus('description');
 	}
-
 	$fixed_asset = get_post('fixed_asset');
 
 	text_row(_("Name:"), 'description', null, 52, 200);
@@ -406,7 +422,6 @@ function item_settings(&$stock_id, $new_item)
 
 
 	if ($new_item && (list_updated('category_id') || !isset($_POST['sales_account']))) { // changed category for new item or first page view
-
 		$category_record = get_item_category($_POST['category_id']);
 		$_POST['tax_type_id'] = $category_record["dflt_tax_type"];
 		$_POST['units'] = $category_record["dflt_units"];

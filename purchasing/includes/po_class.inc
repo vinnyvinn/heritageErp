@@ -12,7 +12,7 @@
 /* Definition of the purch_order class to hold all the information for a purchase order and delivery
 */
 
-class purch_order 
+class purch_order
 {
 
 	var $trans_type; // order/grn/invoice (direct)
@@ -46,11 +46,13 @@ class purch_order
 	var $prepayments = array();
 
 	var $fixed_asset = false;
+    var $lot_line_items;
 
-	function __construct()
+    function __construct()
 	{
 		/*Constructor function initialises a new purchase order object */
 		$this->line_items = array();
+		$this->lot_line_items = array();
 		$this->lines_on_order = $this->order_no = $this->supplier_id = 0;
 	}
 	
@@ -68,7 +70,7 @@ class purch_order
 	{
 		if (isset($qty) && $qty != 0)
 		{
-			$this->line_items[$line_no] = new po_line_details($line_no, $stock_id, $item_descr, $qty, $price, $uom, 
+			$this->line_items[$line_no] = new po_line_details($line_no, $stock_id, $item_descr, $qty, $price, $uom,
 				$req_del_date, $qty_inv, $qty_recd);
 			$this->lines_on_order++;
 			return 1;
@@ -262,5 +264,6 @@ class po_line_details
 		return get_tax_free_price_for_item($this->stock_id, $this->receive_qty*$this->price,
 		  $po->tax_group_id, $po->tax_included, $po->tax_group_array);
 	}
+
 }
 

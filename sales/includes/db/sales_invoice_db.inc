@@ -103,8 +103,11 @@ function write_sales_invoice(&$invoice)
 	$sales_account = $invoice->is_prepaid() ? get_company_pref('deferred_income_act') : 0;
 
 	foreach ($invoice->line_items as $line_no => $invoice_line) {
-		$qty = $invoice_line->qty_dispatched;
-		$line_taxfree_price = get_tax_free_price_for_item($invoice_line->stock_id,
+        $qty = isset(get_box_type($invoice_line->box_id)['quantity']) ? ceil($invoice_line->qty_dispatched/get_box_type($invoice_line->box_id)['quantity']) : $invoice_line->qty_dispatched;
+		error_log('isset--> '.isset(get_box_type($invoice_line->box_id)['quantity']));
+        error_log('box id--> '.$invoice_line->box_id);
+		error_log('qty--> '.$qty);
+        $line_taxfree_price = get_tax_free_price_for_item($invoice_line->stock_id,
 			$invoice_line->price * $qty, 0, $invoice->tax_included,
 			$invoice->tax_group_array);
 
@@ -113,20 +116,20 @@ function write_sales_invoice(&$invoice)
 			$invoice->tax_group_array) - $line_taxfree_price;
 
 		write_customer_trans_detail_item(ST_SALESINVOICE, $invoice_no, $invoice_line->stock_id,
-			$invoice_line->item_description, $invoice_line->qty_dispatched,
+			$invoice_line->item_description, $qty,
 			$invoice_line->line_price(), $qty ? $line_tax/$qty : 0, $invoice_line->discount_percent,
 			$invoice_line->standard_cost, $invoice_line->src_id,
 			$trans_no ? $invoice_line->id : 0);
 
 		// Update delivery items for the quantity invoiced
-		if ($invoice_line->qty_old != $invoice_line->qty_dispatched)
+		if ($invoice_line->qty_old != $qty)
 		{
 			if ($invoice->is_prepaid())
-				update_prepaid_so_line($invoice_line->src_id, $invoice_line->qty_dispatched-$invoice_line->qty_old);
+				update_prepaid_so_line($invoice_line->src_id, $qty-$invoice_line->qty_old);
 			else
-				update_parent_line(ST_SALESINVOICE, $invoice_line->src_id, ($invoice_line->qty_dispatched-$invoice_line->qty_old));
+				update_parent_line(ST_SALESINVOICE, $invoice_line->src_id, ($qty-$invoice_line->qty_old));
 		}
-		if ($invoice_line->qty_dispatched != 0) {
+		if ($qty != 0) {
 			$stock_gl_code = get_stock_gl_code($invoice_line->stock_id);
 
 			if ($invoice_line->line_price() != 0) {

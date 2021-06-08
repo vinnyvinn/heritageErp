@@ -292,6 +292,61 @@ function display_po_items(&$order, $editable=true)
 	div_end();
 }
 
+function display_lot_items(&$order, $editable=true)
+{
+    display_heading(_("Order Items"));
+
+    div_start('items_table');
+    start_table(TABLESTYLE, "width='80%'");
+
+    $new = $order->order_no == 0;
+    $th = array(_("Item Code"), _("Description"), _("GRV Quantity"),_("Quantity"), _("Lot Number"), _("Expiry Date"),"");
+
+    if (count($order->line_items)) $th[] = '';
+
+    table_header($th);
+
+    $id = find_submit('Edit');
+    $total = 0;
+    $k = 0;
+    foreach ($order->line_items as $line_no => $po_line)
+    {
+
+        if (!$editable || ($id != $line_no))
+        {
+            alt_table_row_color($k);
+            label_cell($po_line->stock_id);
+            label_cell($po_line->item_description);
+            label_cell($po_line->quantity);
+            qty_cells(null, 'quantity_in', $_POST['quantity_in'], null, null, '');
+            text_cells(null, 'lot_number', $_POST['lot_number'], 20, 200);
+            date_cells(null, 'expiry_date', '', true, 0, 0, 0, '', true);
+
+           if ($editable)
+            {
+                edit_button_cell("Edit$line_no", _("Edit"),
+                    _('Edit document line'));
+                delete_button_cell("Delete$line_no", _("Delete"),
+                    _('Remove line from document'));
+            }
+            end_row();
+        }
+        else
+        {
+            error_log('cool stuff.....');
+            po_item_controls($order, $k, $line_no);
+        }
+
+    }
+
+    if ($id==-1 && $editable){
+        error_log('vvvvvvvvvvvvvvvv');
+      po_item_controls($order, $k);
+    }
+
+    end_table(1);
+    div_end();
+}
 //---------------------------------------------------------------------------------------------------
 
 function display_po_summary(&$po, $is_self=false, $editable=false)

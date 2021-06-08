@@ -12,8 +12,9 @@
 include_once($path_to_root . "/sales/includes/cart_class.inc");
 
 //--------------------------------------------------------------------------------
-function add_to_order(&$order, $new_item, $new_item_qty, $price, $discount, $description='')
+function add_to_order(&$order, $new_item, $new_item_qty, $price, $discount, $description='',$box_id='')
 {
+
 	// calculate item price to sum of kit element prices factor for
 	// value distribution over all exploded kit items
 	 $std_price = get_kit_price($new_item, $order->customer_currency,
@@ -62,7 +63,7 @@ function add_to_order(&$order, $new_item, $new_item_qty, $price, $discount, $des
 				}
 			}
 			$order->add_to_cart (count($order->line_items),	$item['stock_id'],
-				$new_item_qty*$item['quantity'], $item_price, $discount, 0,0, $description);
+				$new_item_qty*$item['quantity'], $item_price, $discount, 0,0, $description,$box_id);
 		}
 	}
 
@@ -143,9 +144,9 @@ function display_order_summary($title, &$order, $editable_items=false)
     div_start('items_table');
 	start_table(TABLESTYLE, "width='90%'");
 
-	$th = array(_("Item Code"), _("Item Description"), _("Quantity"),
+	$th = array(_("Item Code"), _("Item Description"), _("Qty"),
 		_("Delivered"),
-		_("Unit"), $order->tax_included ? _("Price after Tax") : _("Price before Tax"), _("Discount %"), _("Total"), "");
+		_("Unit"), _("Box Type"),_("Box Qty"),$order->tax_included ? _("Price after Tax") : _("Price before Tax"), _("Discount %"), _("Total"), "");
 
 	if ($order->trans_no == 0) {
 	unset( $th[3] );
@@ -164,7 +165,6 @@ function display_order_summary($title, &$order, $editable_items=false)
 	$low_stock = $order->check_qoh($_POST['OrderDate'], $_POST['Location']);
 	foreach ($order->get_items() as $line_no=>$stock_item)
 	{
-
 		$line_total = round($stock_item->qty_dispatched * $stock_item->price * (1 - $stock_item->discount_percent),
 		   user_price_dec());
 
@@ -186,6 +186,8 @@ function display_order_summary($title, &$order, $editable_items=false)
 				qty_cell($stock_item->qty_done, false, $dec);
 
 			label_cell($stock_item->units);
+			label_cell(get_box_type($stock_item->box_id)['box_item_id']);
+			label_cell(ceil($stock_item->qty_dispatched/get_box_type($stock_item->box_id)['quantity']));
 			amount_cell($stock_item->price);
 
 			percent_cell($stock_item->discount_percent * 100);
@@ -238,6 +240,109 @@ function display_order_summary($title, &$order, $editable_items=false)
     div_end();
 }
 
+function display_order_summary_view($title, &$order, $editable_items=false)
+{
+
+    display_heading($title);
+
+    div_start('items_table');
+    start_table(TABLESTYLE, "width='90%'");
+
+    $th = array(_("Item Code"), _("Item Description"), _("Qty"),
+        _("Delivered"),
+        _("Unit"), _("Box Type"),_("Box Qty"),$order->tax_included ? _("Price after Tax") : _("Price before Tax"), _("Discount %"), _("Total"), "");
+
+    if ($order->trans_no == 0) {
+        unset( $th[3] );
+    }
+
+    if (count($order->line_items))
+        $th[]= '';
+
+    table_header($th);
+
+    $total = 0;
+    $k = 0;  //row colour counter
+
+    $id = find_submit('Edit');
+
+    $low_stock = $order->check_qoh($_POST['OrderDate'], $_POST['Location']);
+    foreach ($order->get_items() as $line_no=>$stock_item)
+    {
+        $line_total = round($stock_item->qty_dispatched * $stock_item->price * (1 - $stock_item->discount_percent),
+            user_price_dec());
+
+        $qoh_msg = '';
+        if (!$editable_items || $id != $line_no)
+        {
+            if (in_array($stock_item->stock_id, $low_stock))
+                start_row("class='stockmankobg'");	// notice low stock status
+            else
+                alt_table_row_color($k);
+
+            view_stock_status_cell($stock_item->stock_id);
+
+            label_cell($stock_item->item_description );
+            $dec = get_qty_dec($stock_item->stock_id);
+            qty_cell($stock_item->qty_dispatched, false, $dec);
+
+            if ($order->trans_no!=0)
+                qty_cell($stock_item->qty_done, false, $dec);
+
+            label_cell($stock_item->units);
+            label_cell(get_box_type($stock_item->box_id)['box_item_id']);
+            label_cell($stock_item->qty_dispatched);
+            amount_cell($stock_item->price);
+
+            percent_cell($stock_item->discount_percent * 100);
+            amount_cell($line_total);
+
+            if ($editable_items)
+            {
+                edit_button_cell("Edit$line_no", _("Edit"),
+                    _('Edit document line'));
+                delete_button_cell("Delete$line_no", _("Delete"),
+                    _('Remove line from document'));
+            }
+            end_row();
+        }
+        else
+        {
+            sales_order_item_controls_view($order, $k,  $line_no);
+        }
+
+        $total += $line_total;
+    }
+
+    if ($id==-1 && $editable_items)
+        sales_order_item_controls_view($order, $k);
+
+    $colspan = 6;
+    if ($order->trans_no!=0)
+        ++$colspan;
+    start_row();
+    label_cell(_("Shipping Charge"), "colspan=$colspan align=right");
+    small_amount_cells(null, 'freight_cost', price_format(get_post('freight_cost',0)));
+    label_cell('', 'colspan=2');
+    end_row();
+    $display_sub_total = price_format($total + input_num('freight_cost'));
+    label_row(_("Sub-total"), $display_sub_total, "colspan=$colspan align=right","align=right", 2);
+    $taxes = $order->get_taxes(input_num('freight_cost'));
+    $tax_total = display_edit_tax_items($taxes, $colspan, $order->tax_included, 2);
+
+    $display_total = price_format(($total + input_num('freight_cost') + $tax_total));
+
+    start_row();
+    label_cells(_("Amount Total"), $display_total, "colspan=$colspan align=right","align=right");
+  //  submit_cells('update', _("Update"), "colspan=2 align='center'", _("Refresh"), true);
+    end_row();
+
+    end_table();
+    if ($low_stock)
+        display_note(_("Marked items have insufficient quantities in stock as on day of delivery."), 0, 1, "class='stockmankofg'");
+
+    div_end();
+}
 // ------------------------------------------------------------------------------
 
 function display_order_header(&$order, $editable, $date_text)
@@ -389,6 +494,7 @@ function display_order_header(&$order, $editable, $date_text)
 				$order->location_name = $order->pos['location_name'];
 			}
 			$Ajax->activate('items_table');
+			$Ajax->activate('itemsk_table');
 			$Ajax->activate('delivery');
 		}
 		$paymcat = !$order->pos['cash_sale'] ? PM_CREDIT :
@@ -436,6 +542,7 @@ function display_order_header(&$order, $editable, $date_text)
 			} else
 				$_POST['delivery_date'] = add_days(get_post('OrderDate'), $SysPrefs->default_delivery_required_by());
 			$Ajax->activate('items_table');
+			$Ajax->activate('itemsk_table');
 			$Ajax->activate('delivery_date');
 		}
 		if ($order->trans_type != ST_SALESORDER && $order->trans_type != ST_SALESQUOTE)
@@ -467,7 +574,7 @@ function display_order_header(&$order, $editable, $date_text)
 			$line->price = get_kit_price($line->stock_id, $order->customer_currency,
 				$order->sales_type, $order->price_factor, get_post('OrderDate'));
 		}
-	    $Ajax->activate('items_table');
+	    $Ajax->activate('itemsk_table');
 	}
 
 	return $customer_error;
@@ -501,6 +608,7 @@ function sales_order_item_controls(&$order, &$rowcounter, $line_no=-1)
 			label_cell($_POST['item_description']);
 		}
 	    $Ajax->activate('items_table');
+	    $Ajax->activate('itemsk_table');
 	}
 	else	// prepare new line
 	{
@@ -545,7 +653,12 @@ function sales_order_item_controls(&$order, &$rowcounter, $line_no=-1)
 	}
 
 	label_cell($units, '', 'units');
+    echo '<td>';
+   boxes_items_list_cells(null,'box_id', $_POST['box_id'], false, true, true);
+   echo '</td>';
 
+   label_cell(get_box_type($_POST['box_id'])['quantity']);
+  //stock_boxes_list_row_(null, 'stock_id_flower', null, false, true);
 	amount_cells(null, 'price');
 
 	small_amount_cells(null, 'Disc', percent_format($_POST['Disc']), null, null, user_percent_dec());
@@ -571,6 +684,93 @@ function sales_order_item_controls(&$order, &$rowcounter, $line_no=-1)
 
 	end_row();
 }
+function sales_order_item_controls_view(&$order, &$rowcounter, $line_no=-1)
+{
+    global $Ajax;
+
+	alt_table_row_color($rowcounter);
+
+	$id = find_submit('Edit');
+	if ($line_no!=-1 && $line_no == $id) // edit old line
+	{
+
+		$_POST['stock_id'] = $order->line_items[$id]->stock_id;
+		$dec = get_qty_dec($_POST['stock_id']);
+		$_POST['qty'] = number_format2($order->line_items[$id]->qty_dispatched, $dec);
+		$_POST['price'] = price_format($order->line_items[$id]->price);
+		$_POST['Disc'] = percent_format($order->line_items[$id]->discount_percent*100);
+		$units = $order->line_items[$id]->units;
+		$_POST['item_description'] = $order->line_items[$id]->item_description;
+		hidden('stock_id', $_POST['stock_id']);
+		label_cell($_POST['stock_id']);
+		if ($order->line_items[$id]->descr_editable)
+			text_cells(null,'item_description', null, 45, 50);
+		else {
+			hidden('item_description', $_POST['item_description']);
+			label_cell($_POST['item_description']);
+		}
+	    $Ajax->activate('items_table');
+	    $Ajax->activate('itemsk_table');
+	}
+	else	// prepare new line
+	{
+		if ($order->fixed_asset)
+            stock_disposable_fa_list_cells(null,'stock_id', null, _('[Select item]'), true, $order->line_items);
+        else {
+            if (!isset($_POST['stock_id'])) {   // Check if stock_id dosesn't exist
+				$_POST['stock_id'] = last_sales_order_detail($order, 'stk_code');  //get the llast sales stock id.
+			}
+            sales_items_list_cells(null,'stock_id', $_POST['stock_id'], false, true, true);
+        }
+        if (list_updated('stock_id')) {
+            $Ajax->activate('price');
+            $Ajax->activate('units');
+            $Ajax->activate('qty');
+            $Ajax->activate('line_total');
+        }
+
+		$item_info = get_item_edit_info($_POST['stock_id']);
+		$units = ''; $dec = 2;
+		if ($item_info) {
+				$units = $item_info["units"];
+				$dec = $item_info['decimals'];
+		}
+		$_POST['qty'] = number_format2(1, $dec);
+		$price = get_kit_price($_POST['stock_id'],
+			$order->customer_currency, $order->sales_type,
+			$order->price_factor, get_post('OrderDate'));
+		$_POST['price'] = price_format($price);
+		// default to the customer's discount %
+		$_POST['Disc'] = percent_format($order->default_discount * 100);
+	}
+
+	if ($order->fixed_asset) {
+		label_cell(1, '', 'qty');
+		hidden('qty', 1);
+	} else
+		qty_cells(null, 'qty', $_POST['qty'], null, null, $dec);
+
+	if ($order->trans_no!=0) {
+		qty_cell($line_no==-1 ? 0 :$order->line_items[$line_no]->qty_done, false, $dec);
+	}
+
+	label_cell($units, '', 'units');
+    echo '<td>';
+   boxes_items_list_cells(null,'box_id', $_POST['box_id'], false, true, true);
+   echo '</td>';
+
+   label_cell(get_box_type($_POST['box_id'])['quantity']);
+  //stock_boxes_list_row_(null, 'stock_id_flower', null, false, true);
+	amount_cells(null, 'price');
+
+	small_amount_cells(null, 'Disc', percent_format($_POST['Disc']), null, null, user_percent_dec());
+
+	$line_total = input_num('qty') * input_num('price') * (1 - input_num('Disc') / 100);
+
+	amount_cell($line_total, false, '','line_total');
+
+	end_row();
+}
 
 //--------------------------------------------------------------------------------
 
@@ -580,18 +780,23 @@ function display_delivery_details(&$order)
 
 	div_start('delivery');
 
-
 	if ($order->payment_terms['cash_sale']) {	// Direct payment sale
+        
 		$Ajax->activate('items_table');
+		$Ajax->activate('itemsk_table');
 		display_heading(_('Cash payment'));
 		start_table(TABLESTYLE2, "width='60%'");
 
 		locations_list_row(_("Deliver from Location:"), 'Location', null, false, true);
  		if (list_updated('Location'))
  			$Ajax->activate('items_table');
+ 			$Ajax->activate('itemsk_table');
 		label_row(_("Cash account:"), $order->pos['bank_account_name']);
 		textarea_row(_("Comments:"), "Comments", $order->Comments, 31, 5);
+
 		end_table();
+
+
 		hidden('delivery_date', $order->due_date);
 	} else {
 		if ($order->trans_type==ST_SALESINVOICE)
@@ -627,9 +832,10 @@ function display_delivery_details(&$order)
 			else
 				label_row(_("Pre-Payment Required:"), price_format($order->prep_amount), "class='label'");
 		}
-		if (list_updated('Location'))
-			$Ajax->activate('items_table');
-
+		if (list_updated('Location')){
+            $Ajax->activate('items_table');
+            $Ajax->activate('itemsk_table');
+        }
 
 		date_row($delname, 'delivery_date',
 			$order->trans_type==ST_SALESORDER ?  _('Enter requested day of delivery')
@@ -651,7 +857,113 @@ function display_delivery_details(&$order)
 		shippers_list_row(_("Shipping Company:"), 'ship_via', $order->ship_via);
 
 		end_outer_table(1);
+
+
 	}
-	div_end();
+    div_end();
 }
 
+
+function display_delivery_details_(&$order)
+{
+    global $Ajax;
+
+    div_start('itemsk_table');
+
+
+    if ($order->payment_terms['cash_sale']) {	// Direct payment sale
+        $Ajax->activate('items_table');
+        $Ajax->activate('itemsk_table');
+        display_heading(_('Box Details'));
+        start_table(TABLESTYLE2, "width='100%'");
+        $th = array(_("Box Name"), _("Total Qty required"), _("Total Qty in Stock"), _("Shortage"));
+        table_header($th);
+        $items = array();
+        foreach ($order->get_items() as $line_no=>$stock_item)
+        {
+         if (isset($items[get_box_type($stock_item->box_id)['box_item_id']])){
+             $items[get_box_type($stock_item->box_id)['box_item_id']]->qty_required += isset(get_box_type($stock_item->box_id)['quantity']) ? ceil($stock_item->quantity/get_box_type($stock_item->box_id)['quantity']) : 0;
+             }else {
+             $items[get_box_type($stock_item->box_id)['box_item_id']] = $stock_item;
+            $items[get_box_type($stock_item->box_id)['box_item_id']]->qty_required = isset(get_box_type($stock_item->box_id)['quantity']) ? ceil($stock_item->quantity/get_box_type($stock_item->box_id)['quantity']) : 0;
+         }
+        }
+
+        foreach ($items as $item){
+            echo '<tr>';
+            $qoh = get_qoh_on_date($item->stock_id, $_POST['Location']);
+            $shortage = (($qoh - $item->qty_dispatched) >= 0) ? 0 : ($item->qty_dispatched-$qoh);
+            label_cell(get_box_type($item->box_id)['box_item_id']);
+            label_cell($item->qty_dispatched);
+            label_cell($qoh);
+            label_cell($shortage);
+            echo '</tr>';
+        }
+        end_table();
+        hidden('delivery_date', $order->due_date);
+    } else {
+        if ($order->trans_type==ST_SALESINVOICE)
+        {
+            $title = _("Delivery Details");
+            $delname = _("Due Date").':';
+        }
+        elseif ($order->trans_type==ST_CUSTDELIVERY)
+        {
+            $title = _("Invoice Delivery Details");
+            $delname = _("Invoice before").':';
+        }
+        elseif ($order->trans_type==ST_SALESQUOTE)
+        {
+            $title = _("Quotation Delivery Details");
+            $delname = _("Valid until").':';
+        }
+        else
+        {
+            $title = _("Order Delivery Details");
+            $delname = _("Required Delivery Date").':';
+        }
+        display_heading($title);
+        start_outer_table(TABLESTYLE2, "width='90%'");
+        table_section(1);
+
+        locations_list_row(_("Deliver from Location:"), 'Location', null, false, true, $order->fixed_asset);
+        if ($order->payment_terms['days_before_due'] == -1)
+        {
+            $Ajax->addUpdate('items_table', 'prep_amount', price_format($order->get_trans_total())); // bind to items_table update
+            if (!$order->is_started())
+                amount_row(_("Pre-Payment Required:"), 'prep_amount');
+            else
+                label_row(_("Pre-Payment Required:"), price_format($order->prep_amount), "class='label'");
+        }
+        if (list_updated('Location')){
+            $Ajax->activate('items_table');
+            $Ajax->activate('itemsk_table');
+        }
+
+
+
+        date_row($delname, 'delivery_date',
+            $order->trans_type==ST_SALESORDER ?  _('Enter requested day of delivery')
+                : ($order->trans_type==ST_SALESQUOTE ? _('Enter Valid until Date') : ''));
+        text_row(_("Deliver To:"), 'deliver_to', $order->deliver_to, 50, 60,
+            _('Additional identifier for delivery e.g. name of receiving person'));
+
+        textarea_row(_("Address:"), 'delivery_address', $order->delivery_address, 35, 5, 255,
+            _('Delivery address. Default is address of customer branch'));
+
+        table_section(2);
+
+        text_row(_("Contact Phone Number:"), 'phone', $order->phone, 25, 25,
+            _('Phone number of ordering person. Defaults to branch phone number'));
+        text_row(_("Customer Reference:"), 'cust_ref', $order->cust_ref, 25, 25,
+            _('Customer reference number for this order (if any)'));
+        textarea_row(_("Comments:"), "Comments", $order->Comments, 31, 5);
+
+        shippers_list_row(_("Shipping Company:"), 'ship_via', $order->ship_via);
+
+        end_outer_table(1);
+
+
+    }
+    div_end();
+}

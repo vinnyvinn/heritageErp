@@ -119,6 +119,7 @@ $opts = array(		// default options
 			$Ajax->activate('_page_body');
 		else
 			$Ajax->activate($name);
+
 	}
 	if (isset($_POST[$search_button])) {
 		if (!$opts['async'])
@@ -369,6 +370,354 @@ $opts = array(		// default options
 	else
 		$str = $edit_entry.$selector.$img;
 	return $str;
+}
+
+function combo_input_($name, $selected_id, $sql, $valfield, $namefield,
+                     $options=null, $type=null)
+{
+    global $Ajax, $path_to_root, $SysPrefs ;
+
+    $opts = array(		// default options
+        'where'=> array(),		// additional constraints
+        'order' => $namefield,	// list sort order
+        // special option parameters
+        'spec_option'=>false, 	// option text or false
+        'spec_id' => 0,		// option id
+        // submit on select parameters
+        'default' => '', // default value when $_POST is not set
+        'multi' => false,	// multiple select
+        'select_submit' => false, //submit on select: true/false
+        'async' => true,	// select update via ajax (true) vs _page_body reload
+        // search box parameters
+        'sel_hint' => null,
+        'search_box' => false, 	// name or true/false
+        'type' => 0,	// type of extended selector:
+        // 0 - with (optional) visible search box, search by fragment inside id
+        // 1 - with hidden search box, search by option text
+        // 2 - with (optional) visible search box, search by fragment at the start of id
+        // 3 - TODO reverse: box with hidden selector available via enter; this
+        // would be convenient for optional ad hoc adding of new item
+        'search_submit' => true, //search submit button: true/false
+        'size' => 8,	// size and max of box tag
+        'max' => 50,
+        'height' => false,	// number of lines in select box
+        'cells' => false,	// combo displayed as 2 <td></td> cells
+        'search' => array(), // sql field names to search
+        'format' => null, 	 // format functions for regular options
+        'disabled' => false,
+        'box_hint' => null, // box/selectors hints; null = std see below
+        'category' => false, // category column name or false
+        'show_inactive' => false, // show inactive records.
+        'editable' => false, // false, or length of editable entry field
+        'editlink' => false	// link to entity entry/edit page (optional)
+    );
+// ------ merge options with defaults ----------
+    if($options != null)
+        $opts = array_merge($opts, $options);
+    if (!is_array($opts['where']))  $opts['where'] = array($opts['where']);
+
+    $search_box = $opts['search_box']===true ? '_'.$name.'_edit' : $opts['search_box'];
+    // select content filtered by search field:
+    $search_submit = $opts['search_submit']===true ? '_'.$name.'_button' : $opts['search_submit'];
+    // select set by select content field
+    $search_button = $opts['editable'] ? '_'.$name.'_button' : ($search_box ? $search_submit : false);
+
+    $select_submit =  $opts['select_submit'];
+    $spec_id = $opts['spec_id'];
+    $spec_option = $opts['spec_option'];
+    if ($opts['type'] == 0) {
+        $by_id = true;
+        $class = 'combo';
+    } elseif($opts['type'] == 1) {
+        $by_id = false;
+        $class = 'combo2';
+    } else {
+        $by_id = true;
+        $class = 'combo3';
+    }
+
+    $disabled = $opts['disabled'] ? "disabled" : '';
+    $multi = $opts['multi'];
+
+    if(!count($opts['search'])) {
+        $opts['search'] = array($by_id ? $valfield : $namefield);
+    }
+    if ($opts['sel_hint'] === null)
+        $opts['sel_hint'] = $by_id || $search_box==false ?
+            '' : _('Press Space tab for search pattern entry');
+
+    if ($opts['box_hint'] === null)
+        $opts['box_hint'] = $search_box && $search_submit != false ?
+            ($by_id ? _('Enter code fragment to search or * for all')
+                : _('Enter description fragment to search or * for all')) :'';
+
+    if ($selected_id == null) {
+        $selected_id = get_post($name, (string)$opts['default']);
+    }
+    if(!is_array($selected_id))
+        $selected_id = array((string)$selected_id); // code is generalized for multiple selection support
+
+    $txt = get_post($search_box);
+    $rel = '';
+    $limit = '';
+    if (isset($_POST['_'.$name.'_update'])) { // select list or search box change
+        if ($by_id) $txt = $_POST[$name];
+
+//		if (!$opts['async'])
+//			$Ajax->activate('_page_body');
+//		else
+//			$Ajax->activate($name);
+        $Ajax->activate('_page_body');
+    }
+    if (isset($_POST[$search_button])) {
+        if (!$opts['async'])
+            $Ajax->activate('_page_body');
+        else
+            $Ajax->activate($name);
+    }
+    if ($search_box) {
+        // search related sql modifications
+
+        $rel = "rel='$search_box'"; // set relation to list
+        if ($opts['search_submit']) {
+            if (isset($_POST[$search_button])) {
+                $selected_id = array(); // ignore selected_id while search
+                if (!$opts['async'])
+                    $Ajax->activate('_page_body');
+                else
+                    $Ajax->activate($name);
+            }
+            if ($txt == '') {
+                if ($spec_option === false && $selected_id == array())
+                    $limit = ' LIMIT 1';
+                else
+                    $opts['where'][] = $valfield . "=". db_escape(get_post($name, $spec_id));
+            }
+            else
+                if ($txt != '*') {
+
+                    foreach($opts['search'] as $i=> $s)
+                        $opts['search'][$i] = $s . " LIKE "
+                            .db_escape(($class=='combo3' ? '' : '%').$txt.'%');
+                    $opts['where'][] = '('. implode(' OR ', $opts['search']) . ')';
+                }
+        }
+    }
+
+    // sql completion
+    if (count($opts['where'])) {
+        $where = strpos($sql, 'WHERE')==false ? ' WHERE ':' AND ';
+        $where .= '('. implode(' AND ', $opts['where']) . ')';
+        $group_pos = strpos($sql, 'GROUP BY');
+        if ($group_pos) {
+            $group = substr($sql, $group_pos);
+            $sql = substr($sql, 0, $group_pos) . $where.' '.$group;
+        } else {
+            $sql .= $where;
+        }
+    }
+    if ($opts['order'] != false) {
+        if (!is_array($opts['order']))
+            $opts['order'] = array($opts['order']);
+        $sql .= ' ORDER BY '.implode(',',$opts['order']);
+    }
+
+    $sql .= $limit;
+    // ------ make selector ----------
+    $selector = $first_opt = '';
+    $first_id = false;
+    $found = false;
+    $lastcat = null;
+    $edit = false;
+    $pname = false;
+    if (($type === "customer" || $type === "supplier") && !empty($SysPrefs->prefs['shortname_name_in_list']))
+        $pname = true;
+    if($result = db_query($sql)) {
+        while ($contact_row = db_fetch($result)) {
+            $value = $contact_row[0];
+            $descr = $opts['format']==null ?  $contact_row[1] :
+                call_user_func($opts['format'], $contact_row, $pname);
+            $sel = '';
+            if (get_post($search_button) && ($txt == $value)) {
+                $selected_id[] = $value;
+            }
+
+            if (in_array((string)$value, $selected_id, true)) {
+                $sel = 'selected';
+                $found = $value;
+                $edit = $opts['editable'] && $contact_row['editable']
+                && (@$_POST[$search_box] == $value)
+                    ? $contact_row[1] : false; // get non-formatted description
+                if ($edit)
+                    break;	// selected field is editable - abandon list construction
+            }
+            // show selected option even if inactive
+            if (!$opts['show_inactive'] && @$contact_row['inactive'] && $sel==='') {
+                continue;
+            } else
+                $optclass = @$contact_row['inactive'] ? "class='inactive'" : '';
+
+            if ($first_id === false) {
+                $first_id = $value;
+                $first_opt = $descr;
+            }
+            $cat = $contact_row[$opts['category']];
+            if ($opts['category'] !== false && $cat != $lastcat){
+                if ($lastcat!==null)
+                    $selector .= "</optgroup>";
+                $selector .= "<optgroup label='".$cat."'>\n";
+                $lastcat = $cat;
+            }
+            $selector .= "<option $sel $optclass value='$value'>$descr</option>\n";
+        }
+        if ($lastcat!==null)
+            $selector .= "</optgroup>";
+        db_free_result($result);
+    }
+
+    // Prepend special option.
+    if ($spec_option !== false) { // if special option used - add it
+        $first_id = $spec_id;
+        $first_opt = $spec_option;
+        $sel = $found===false ? 'selected' : '';
+        $optclass = @$contact_row['inactive'] ? "class='inactive'" : '';
+        $selector = "<option $sel value='$first_id'>$first_opt</option>\n"
+            . $selector;
+    }
+
+    if ($found===false) {
+        $selected_id = array($first_id);
+    }
+
+    $_POST[$name] = $multi ? $selected_id : $selected_id[0];
+
+    if ($SysPrefs->use_popup_search)
+        $selector = "<select id='$name' autocomplete='off' ".($multi ? "multiple" : '')
+            . ($opts['height']!==false ? ' size="'.$opts['height'].'"' : '')
+            . "$disabled name='$name".($multi ? '[]':'')."' class='$class' title='"
+            . $opts['sel_hint']."' $rel>".$selector."</select>\n";
+    else
+        $selector = "<select autocomplete='off' ".($multi ? "multiple" : '')
+            . ($opts['height']!==false ? ' size="'.$opts['height'].'"' : '')
+            . "$disabled name='$name".($multi ? '[]':'')."' class='$class' title='"
+            . $opts['sel_hint']."' $rel>".$selector."</select>\n";
+    if ($by_id && ($search_box != false || $opts['editable']) ) {
+        // on first display show selector list
+        if (isset($_POST[$search_box]) && $opts['editable'] && $edit) {
+            $selector = "<input type='hidden' name='$name' value='".$_POST[$name]."'>"
+                ."<input type='text' $disabled name='{$name}_text' id='{$name}_text' size='".
+                $opts['editable']."' maxlength='".$opts['max']."' $rel value='$edit'>\n";
+            set_focus($name.'_text'); // prevent lost focus
+        } else if (get_post($search_submit ? $search_submit : "_{$name}_button"))
+            set_focus($name); // prevent lost focus
+        if (!$opts['editable'])
+            $txt = $found;
+        $Ajax->addUpdate($name, $search_box, $txt ? $txt : '');
+    }
+
+    $Ajax->addUpdate($name, "_{$name}_sel", $selector);
+
+    // span for select list/input field update
+    $selector = "<span id='_{$name}_sel'>".$selector."</span>\n";
+
+    // if selectable or editable list is used - add select button
+    if ($select_submit != false || $search_button) {
+        // button class selects form reload/ajax selector update
+        $selector .= sprintf(SELECT_BUTTON, $disabled, user_theme(),
+                (fallback_mode() ? '' : 'display:none;'),
+                '_'.$name.'_update')."\n";
+    }
+// ------ make combo ----------
+    $edit_entry = '';
+    if ($search_box != false) {
+        $edit_entry = "<input $disabled type='text' name='$search_box' id='$search_box' size='".
+            $opts['size']."' maxlength='".$opts['max'].
+            "' value='$txt' class='$class' rel='$name' autocomplete='off' title='"
+            .$opts['box_hint']."'"
+            .(!fallback_mode() && !$by_id ? " style=display:none;":'')
+            .">\n";
+        if ($search_submit != false || $opts['editable']) {
+            $edit_entry .= sprintf(SEARCH_BUTTON, $disabled, user_theme(),
+                    (fallback_mode() ? '' : 'display:none;'),
+                    $search_submit ? $search_submit : "_{$name}_button")."\n";
+        }
+    }
+    default_focus(($search_box && $by_id) ? $search_box : $name);
+
+    $img = "";
+    if ($SysPrefs->use_popup_search && (!isset($opts['fixed_asset']) || !$opts['fixed_asset']))
+    {
+        $img_title = "";
+        $link = "";
+        $id = $name;
+        if ($SysPrefs->use_popup_windows) {
+            switch (strtolower($type)) {
+                case "stock":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=all&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "stock_manufactured":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=manufactured&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "stock_purchased":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=purchasable&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "stock_sales":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=sales&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "stock_costable":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=costable&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "component":
+                    $parent = $opts['parent'];
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=component&parent=".$parent."&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "kits":
+                    $link = $path_to_root . "/inventory/inquiry/stock_list.php?popup=1&type=kits&client_id=" . $id;
+                    $img_title = _("Search items");
+                    break;
+                case "customer":
+                    $link = $path_to_root . "/sales/inquiry/customers_list.php?popup=1&client_id=" . $id;
+                    $img_title = _("Search customers");
+                    break;
+                case "branch":
+                    $link = $path_to_root . "/sales/inquiry/customer_branches_list.php?popup=1&client_id=" . $id . "#customer_id";
+                    $img_title = _("Search branches");
+                    break;
+                case "supplier":
+                    $link = $path_to_root . "/purchasing/inquiry/suppliers_list.php?popup=1&client_id=" . $id;
+                    $img_title = _("Search suppliers");
+                    break;
+                case "account":
+                case "account2":
+                    $skip = strtolower($type) == "account" ? false : true;
+                    $link = $path_to_root . "/gl/inquiry/accounts_list.php?popup=1&skip=".$skip."&client_id=" . $id;
+                    $img_title = _("Search GL accounts");
+                    break;
+            }
+        }
+
+        if ($link !=="") {
+            $theme = user_theme();
+            $img = '<img src="'.$path_to_root.'/themes/'.$theme.'/images/'.ICON_VIEW.
+                '" style="vertical-align:middle;width:12px;height:12px;border:0;" onclick="javascript:lookupWindow(&quot;'.
+                $link.'&quot;, &quot;&quot;);" title="' . $img_title . '" style="cursor:pointer;" />';
+        }
+    }
+
+    if ($opts['editlink'])
+        $selector .= ' '.$opts['editlink'];
+
+    if ($search_box && $opts['cells'])
+        $str = ($edit_entry!='' ? "<td>$edit_entry</td>" : '')."<td nowrap>$selector$img</td>";
+    else
+        $str = $edit_entry.$selector.$img;
+    return $str;
 }
 
 /*
@@ -853,6 +1202,23 @@ function stock_items_list($name, $selected_id=null, $all_option=false,
 		  ), $opts), $type );
 	return $ret;
 }
+function stock_items_list_($name, $selected_id=null, $spec_opt=false,
+	$submit_on_change=false, $opts=array(), $editkey = false, $type = "stock")
+{
+    $cat = $_POST['category_id'];
+	$sql = "SELECT stock_id, description
+			FROM ".TB_PREF."stock_master s WHERE s.category_id=$cat";
+  $q = db_query($sql,'error ocurred');
+	error_log(print_r(db_fetch($q),true));
+
+    return combo_input($name, $selected_id, $sql, 'id', 'name',
+        array(
+            'spec_option' => $spec_opt,
+            'spec_id' => -1,
+            'select_submit'=> $submit_on_change,
+            'async' => true
+        ));
+}
 
 function _format_stock_items($row)
 {
@@ -936,6 +1302,31 @@ function sales_items_list($name, $selected_id=null, $all_option=false,
 		  ), $opts), $type == 'kits' ? $type : "stock_sales" );
 }
 
+function boxes_items_list($name, $selected_id=null, $all_option=false,
+	$submit_on_change=false, $type='', $opts=array())
+{
+	//all boxes by flower item id;
+    $stock = $_POST['stock_id'];
+
+    $sql = "SELECT id,box_item_id
+			FROM
+			".TB_PREF."flower_boxes		
+			WHERE flower_item_id=".db_escape($stock)
+            ." GROUP BY box_item_id";
+   error_log(print_r($sql,true));
+
+    return combo_input($name, $selected_id, $sql, 'id', 'box_item_id',
+        array(
+            'spec_option' => $all_option,
+            'spec_id' => -1,
+            'size'=>15,
+            'select_submit'=> $submit_on_change,
+            'async' => true,
+            'editable' => 30,
+            'max' => 255
+        ));
+}
+
 function sales_items_list_cells($label, $name, $selected_id=null, $all_option=false, $submit_on_change=false, $editkey=false)
 {
 	if ($editkey)
@@ -944,6 +1335,16 @@ function sales_items_list_cells($label, $name, $selected_id=null, $all_option=fa
 	if ($label != null)
 		echo "<td>$label</td>\n";
 	echo sales_items_list($name, $selected_id, $all_option, $submit_on_change,
+		'', array('cells'=>true, 'max'=>50)); // maximum is set to 50 and not default 255.
+}
+function boxes_items_list_cells($label, $name, $selected_id=null, $all_option=false, $submit_on_change=false, $editkey=false)
+{
+	if ($editkey)
+	 set_editor('item', $name, $editkey);
+
+	if ($label != null)
+		echo "<td>$label</td>\n";
+	echo boxes_items_list($name, $selected_id, $all_option, $submit_on_change,
 		'', array('cells'=>true, 'max'=>50)); // maximum is set to 50 and not default 255.
 }
 
@@ -1016,6 +1417,49 @@ function stock_costable_items_list($name, $selected_id=null,
 {
 	return stock_items_list($name, $selected_id, $all_option, $submit_on_change,
 		array('where'=>array("mb_flag!='D'")), false, "stock_costable");
+}
+
+function check_items(){
+    $category = $_POST['category_id'];
+    $sql = "SELECT stock_id,description FROM ".TB_PREF."stock_master WHERE category_id=$category";
+    $q = db_query($sql,'failed to connect..');
+    return db_fetch($q);
+}
+function stock_boxes_items_list($name, $selected_id=null,
+                                $spec_opt=false, $submit_on_change=false)
+{
+    $category = $_POST['category_id'];
+
+    $sql = "SELECT stock_id,description FROM ".TB_PREF."stock_master WHERE category_id=$category";
+
+      return combo_input($name, $selected_id, $sql, 'stock_id', 'description',
+          array(
+              'spec_option' => $spec_opt,
+              'spec_id' => -1,
+              'select_submit'=> $submit_on_change,
+              'async' => true
+          ));
+
+
+//	return stock_items_list_($name, $selected_id, $spec_opt, $submit_on_change);
+}
+function stock_boxes_items_list_($name, $selected_id=null,
+                                $spec_opt=false, $submit_on_change=false)
+{
+    $category = $_POST['category_id_flower'];
+
+    $sql = "SELECT stock_id,description FROM ".TB_PREF."stock_master WHERE (category_id=$category AND size_id !=0)";
+
+      return combo_input_($name, $selected_id, $sql, 'stock_id', 'description',
+          array(
+              'spec_option' => $spec_opt,
+              'spec_id' => -1,
+              'select_submit'=> $submit_on_change,
+              'async' => true
+          ));
+
+
+//	return stock_items_list_($name, $selected_id, $spec_opt, $submit_on_change);
 }
 
 function stock_costable_items_list_cells($label, $name, $selected_id=null, 
@@ -1199,6 +1643,18 @@ function colors_list($name, $selected_id=null, $spec_opt=false, $submit_on_chang
 function variety_list($name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
 {
    $sql = "SELECT id, name FROM ".TB_PREF."varieties";
+
+    return combo_input($name, $selected_id, $sql, 'id', 'name',
+        array(
+            'spec_option' => $spec_opt,
+            'spec_id' => -1,
+            'select_submit'=> $submit_on_change,
+            'async' => true
+        ));
+}
+function item_type_list($name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
+{
+   $sql = "SELECT id, name FROM ".TB_PREF."items_types";
 
     return combo_input($name, $selected_id, $sql, 'id', 'name',
         array(
@@ -1781,6 +2237,42 @@ function stock_categories_list($name, $selected_id=null, $spec_opt=false, $submi
 			'where' => $where_opts,
  		));
 }
+function stock_categories_box_list($name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    $where_opts = array();
+    if ($fixed_asset)
+        $where_opts[0] = "dflt_mb_flag='F'";
+    else
+        $where_opts[0] = "dflt_mb_flag!='F'";
+
+    $sql = "SELECT category_id, description, inactive FROM ".TB_PREF."stock_category";
+    return combo_input_($name, $selected_id, $sql, 'category_id', 'description',
+        array('order'=>'category_id',
+            'spec_option' => $spec_opt,
+            'spec_id' => -1,
+            'select_submit'=> $submit_on_change,
+            'async' => true,
+            'where' => $where_opts,
+        ));
+}
+function stock_categories_list_($name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    $where_opts = array();
+    if ($fixed_asset)
+        $where_opts[0] = "dflt_mb_flag='F'";
+    else
+        $where_opts[0] = "dflt_mb_flag!='F'";
+
+    $sql = "SELECT category_id as category_id_flower, description, inactive FROM ".TB_PREF."stock_category";
+    return combo_input_($name, $selected_id, $sql, 'category_id_flower', 'description',
+        array('order'=>'category_id',
+            'spec_option' => $spec_opt,
+            'spec_id' => -1,
+            'select_submit'=> $submit_on_change,
+            'async' => true,
+            'where' => $where_opts,
+        ));
+}
 
 function stock_categories_list_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
 {
@@ -1790,6 +2282,38 @@ function stock_categories_list_cells($label, $name, $selected_id=null, $spec_opt
 	echo stock_categories_list($name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
 	echo "</td>\n";
 }
+function stock_categories_list_box_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    if ($label != null)
+        echo "<td>$label</td>\n";
+    echo "<td>";
+    echo stock_categories_box_list($name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
+    echo "</td>\n";
+}
+function stock_categories_list_cells_($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+	if ($label != null)
+		echo "<td>$label</td>\n";
+	echo "<td>";
+	echo stock_categories_list_($name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
+	echo "</td>\n";
+}
+function stock_boxes_list_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
+{
+	if ($label != null)
+		echo "<td>$label</td>\n";
+	echo "<td>";
+	echo stock_boxes_items_list($name, $selected_id, $spec_opt, $submit_on_change);
+	echo "</td>\n";
+}
+function stock_boxes_list_cells_($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
+{
+	if ($label != null)
+		echo "<td>$label</td>\n";
+	echo "<td>";
+	echo stock_boxes_items_list_($name, $selected_id, $spec_opt, $submit_on_change);
+	echo "</td>\n";
+}
 
 function variety_list_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
 {
@@ -1797,6 +2321,14 @@ function variety_list_cells($label, $name, $selected_id=null, $spec_opt=false, $
         echo "<td>$label</td>\n";
     echo "<td>";
     echo variety_list($name, $selected_id, $spec_opt, $submit_on_change);
+    echo "</td>\n";
+}
+function item_type_list_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
+{
+    if ($label != null)
+        echo "<td>$label</td>\n";
+    echo "<td>";
+    echo item_type_list($name, $selected_id, $spec_opt, $submit_on_change);
     echo "</td>\n";
 }
 function colors_list_cells($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
@@ -1831,11 +2363,41 @@ function stock_categories_list_row($label, $name, $selected_id=null, $spec_opt=f
 	stock_categories_list_cells(null, $name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
 	echo "</tr>\n";
 }
+function stock_categories_list_box_row($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    echo "<tr><td class='label'>$label</td>";
+    stock_categories_list_box_cells(null, $name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
+    echo "</tr>\n";
+}
+function stock_categories_list_row_($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    echo "<tr><td class='label'>$label</td>";
+    stock_categories_list_cells_(null, $name, $selected_id, $spec_opt, $submit_on_change, $fixed_asset);
+    echo "</tr>\n";
+}
+function stock_boxes_list_row($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+	echo "<tr><td class='label'>$label</td>";
+	stock_boxes_list_cells(null, $name, $selected_id, $spec_opt, $submit_on_change);
+	echo "</tr>\n";
+}
+function stock_boxes_list_row_($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false, $fixed_asset=false)
+{
+    echo "<tr><td class='label'>$label</td>";
+    stock_boxes_list_cells_(null, $name, $selected_id, $spec_opt, $submit_on_change);
+    echo "</tr>\n";
+}
 
 function variety_list_row($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
 {
     echo "<tr><td class='label'>$label</td>";
     variety_list_cells(null, $name, $selected_id, $spec_opt, $submit_on_change);
+    echo "</tr>\n";
+}
+function item_type_list_row($label, $name, $selected_id=null, $spec_opt=false, $submit_on_change=false)
+{
+    echo "<tr><td class='label'>$label</td>";
+    item_type_list_cells(null, $name, $selected_id, $spec_opt, $submit_on_change);
     echo "</tr>\n";
 }
 

@@ -54,6 +54,8 @@ class customers_app extends application
 			"sales/inquiry/sales_orders_view.php?type=32", 'SA_SALESTRANSVIEW', MENU_INQUIRY);
 		$this->add_lapp_function(1, _("Sales Order &Inquiry"),
 			"sales/inquiry/sales_orders_view.php?type=30", 'SA_SALESTRANSVIEW', MENU_INQUIRY);
+        $this->add_lapp_function(1, _("View Invoices"),
+            "sales/inquiry/view_invoices.php?type=30", 'SA_SALESTRANSVIEW', MENU_INQUIRY);
 		$this->add_lapp_function(1, _("Customer Transaction &Inquiry"),
 			"sales/inquiry/customer_inquiry.php?", 'SA_SALESTRANSVIEW', MENU_INQUIRY);
 		$this->add_lapp_function(1, _("Customer Allocation &Inquiry"),

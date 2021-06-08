@@ -24,6 +24,14 @@ function add_item_location($loc_code, $location_name, $delivery_address, $phone,
 
 	db_query($sql,"a location could not be added");
 }
+function add_item_box($box_item, $flower_item, $qty, $stem_size)
+{
+	$sql = "INSERT INTO ".TB_PREF."flower_boxes (box_item_id, flower_item_id, stem_size, quantity)
+		VALUES (".db_escape($box_item).", ".db_escape($flower_item).", ".db_escape($stem_size).", "
+			.db_escape($qty).")";
+
+	db_query($sql,"a box could not be added");
+}
 
 //------------------------------------------------------------------------------------
 
@@ -39,6 +47,23 @@ function update_item_location($loc_code, $location_name, $delivery_address, $pho
 
 	db_query($sql,"a location could not be updated");
 }
+function update_item_box($id, $box_item, $flower_item, $qty, $stem_size)
+
+{
+    $sql = "UPDATE ".TB_PREF."flower_boxes SET box_item_id=".db_escape($box_item).",
+    	flower_item_id=".db_escape($flower_item).",
+    	stem_size=".db_escape($stem_size).", quantity=".db_escape($qty)."
+    	WHERE id = ".db_escape($id);
+
+	db_query($sql,"a location could not be updated");
+}
+
+function validate_boxes($box_id,$flower_id){
+$sql = "SELECT * FROM ".TB_PREF."flower_boxes WHERE box_item_id=".db_escape($box_id)." AND flower_item_id=".db_escape($flower_id);
+
+$query = db_query($sql,'Flower items could not bet fetched');
+return db_fetch($query);
+}
 
 //------------------------------------------------------------------------------------
 
@@ -49,6 +74,11 @@ function delete_item_location($item_location)
 
 	$sql = "DELETE FROM ".TB_PREF."loc_stock WHERE loc_code =".db_escape($item_location);
 	db_query($sql,"a location could not be deleted");
+}
+function delete_item_box($id)
+{
+	$sql="DELETE FROM ".TB_PREF."flower_boxes WHERE id=".db_escape($id);
+	db_query($sql,"a box could not be deleted");
 }
 
 //------------------------------------------------------------------------------------
@@ -69,6 +99,12 @@ function get_item_locations($show_inactive, $fixed_asset = 0)
 	$sql = "SELECT * FROM ".TB_PREF."locations WHERE fixed_asset = ".db_escape($fixed_asset);
 	if (!$show_inactive) $sql .= " AND !inactive";
 	return db_query($sql, "could not query locations");
+}
+function get_item_boxes()
+{
+	$sql = "SELECT * FROM ".TB_PREF."flower_boxes";
+
+	return db_query($sql, "could not query boxes");
 }
 
 //------------------------------------------------------------------------------------

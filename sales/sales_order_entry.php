@@ -1,12 +1,12 @@
 <?php
 /**********************************************************************
     Copyright (C) FrontAccounting, LLC.
-	Released under the terms of the GNU General Public License, GPL, 
-	as published by the Free Software Foundation, either version 3 
+	Released under the terms of the GNU General Public License, GPL,
+	as published by the Free Software Foundation, either version 3
 	of the License, or (at your option) any later version.
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
     See the License here <http://www.gnu.org/licenses/gpl-3.0.html>.
 ***********************************************************************/
 //-----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ set_page_security( @$_SESSION['Items']->trans_type,
 			'AddedQU' => 'SA_SALESQUOTE',
 			'UpdatedQU' => 'SA_SALESQUOTE',
 			'NewDelivery' => 'SA_SALESDELIVERY',
-			'AddedDN' => 'SA_SALESDELIVERY', 
+			'AddedDN' => 'SA_SALESDELIVERY',
 			'NewInvoice' => 'SA_SALESINVOICE',
 			'AddedDI' => 'SA_SALESINVOICE'
 			)
@@ -80,7 +80,15 @@ if (isset($_GET['NewDelivery']) && is_numeric($_GET['NewDelivery'])) {
 	$_SESSION['page_title'] = sprintf( _("Modifying Sales Order # %d"), $_GET['ModifyOrderNumber']);
 	create_cart(ST_SALESORDER, $_GET['ModifyOrderNumber']);
 
-} elseif (isset($_GET['ModifyQuotationNumber']) && is_numeric($_GET['ModifyQuotationNumber'])) {
+}
+elseif (isset($_GET['ViewOrderNumber']) && is_numeric($_GET['ViewOrderNumber'])) {
+
+    $help_context = 'Viewing Sales Order';
+    $_SESSION['page_title'] = sprintf( _("Viewing Sales Order # %d"), $_GET['ViewOrderNumber']);
+    create_cart(ST_SALESORDER, $_GET['ViewOrderNumber']);
+
+}
+elseif (isset($_GET['ModifyQuotationNumber']) && is_numeric($_GET['ModifyQuotationNumber'])) {
 
 	$help_context = 'Modifying Sales Quotation';
 	$_SESSION['page_title'] = sprintf( _("Modifying Sales Quotation # %d"), $_GET['ModifyQuotationNumber']);
@@ -129,7 +137,7 @@ if (isset($_GET['AddedID'])) {
     submenu_print(_("&Print This Order"), ST_SALESORDER, $order_no, 'prtopt');
 	submenu_print(_("&Email This Order"), ST_SALESORDER, $order_no, null, 1);
 	set_focus('prtopt');
-	
+
 	submenu_option(_("Make &Delivery Against This Order"),
 		"/sales/customer_delivery.php?OrderNumber=$order_no");
 
@@ -167,7 +175,7 @@ if (isset($_GET['AddedID'])) {
 	submenu_print(_("&Print This Quotation"), ST_SALESQUOTE, $order_no, 'prtopt');
 	submenu_print(_("&Email This Quotation"), ST_SALESQUOTE, $order_no, null, 1);
 	set_focus('prtopt');
-	
+
 	submenu_option(_("Make &Sales Order Against This Quotation"),
 		"/sales/sales_order_entry.php?NewQuoteToSalesOrder=$order_no");
 
@@ -215,7 +223,7 @@ if (isset($_GET['AddedID'])) {
 		submenu_option(_("Enter a New Template &Delivery"),
 			"/sales/inquiry/sales_orders_view.php?DeliveryTemplates=Yes");
 	else
-		submenu_option(_("Enter a &New Delivery"), 
+		submenu_option(_("Enter a &New Delivery"),
 			"/sales/sales_order_entry.php?NewDelivery=0");
 
 	display_footer_exit();
@@ -335,7 +343,7 @@ function copy_from_cart()
 	$_POST['branch_id'] = $cart->Branch;
 	$_POST['sales_type'] = $cart->sales_type;
 	$_POST['prep_amount'] = price_format($cart->prep_amount);
-	// POS 
+	// POS
 	$_POST['payment'] = $cart->payment;
 	if ($cart->trans_type!=ST_SALESORDER && $cart->trans_type!=ST_SALESQUOTE) { // 2008-11-12 Joe Hunt
 		$_POST['dimension_id'] = $cart->dimension_id;
@@ -360,7 +368,7 @@ function can_process() {
 
 	copy_to_cart();
 
-    if ($_SESSION['Items']->trans_type == ST_SALESINVOICE):
+    //if ($_SESSION['Items']->trans_type == ST_SALESINVOICE):
     if (!get_post('c17_entry_number')){
         display_error(_("C17 Entry Number cannot be empty."));
         set_focus('c17_entry_number');
@@ -381,15 +389,15 @@ function can_process() {
             set_focus('ecs_number');
             return false;
         }
-    endif;
-	if (!get_post('customer_id')) 
+    //endif;
+	if (!get_post('customer_id'))
 	{
 		display_error(_("There is no customer selected."));
 		set_focus('customer_id');
 		return false;
 	}
 
-	if (!get_post('branch_id')) 
+	if (!get_post('branch_id'))
 	{
 		display_error(_("This customer has no branch defined."));
 		set_focus('branch_id');
@@ -447,7 +455,7 @@ function can_process() {
 		if (!is_date($_POST['delivery_date'])) {
 			if ($_SESSION['Items']->trans_type==ST_SALESQUOTE)
 				display_error(_("The Valid date is invalid."));
-			else	
+			else
 				display_error(_("The delivery date is invalid."));
 			set_focus('delivery_date');
 			return false;
@@ -455,7 +463,7 @@ function can_process() {
 		if (date1_greater_date2($_POST['OrderDate'], $_POST['delivery_date'])) {
 			if ($_SESSION['Items']->trans_type==ST_SALESQUOTE)
 				display_error(_("The requested valid date is before the date of the quotation."));
-			else	
+			else
 				display_error(_("The requested delivery date is before the date of the order."));
 			set_focus('delivery_date');
 			return false;
@@ -467,8 +475,8 @@ function can_process() {
 		{
 			display_error(_("You need to define a cash account for your Sales Point."));
 			return false;
-		}	
-	}	
+		}
+	}
 	if (!$Refs->is_valid($_POST['ref'], $_SESSION['Items']->trans_type)) {
 		display_error(_("You must enter a reference."));
 		set_focus('ref');
@@ -476,14 +484,14 @@ function can_process() {
 	}
 	if (!db_has_currency_rates($_SESSION['Items']->customer_currency, $_POST['OrderDate']))
 		return false;
-	
+
    	if ($_SESSION['Items']->get_items_total() < 0) {
 		display_error("Invoice total amount cannot be less than zero.");
 		return false;
 	}
 
-	if ($_SESSION['Items']->payment_terms['cash_sale'] && 
-		($_SESSION['Items']->trans_type == ST_CUSTDELIVERY || $_SESSION['Items']->trans_type == ST_SALESINVOICE)) 
+	if ($_SESSION['Items']->payment_terms['cash_sale'] &&
+		($_SESSION['Items']->trans_type == ST_CUSTDELIVERY || $_SESSION['Items']->trans_type == ST_SALESINVOICE))
 		$_SESSION['Items']->due_date = $_SESSION['Items']->document_date;
 	return true;
 }
@@ -497,10 +505,10 @@ if (isset($_POST['update'])) {
 
 if (isset($_POST['ProcessOrder']) && can_process()) {
 
-	$modified = ($_SESSION['Items']->trans_no != 0);
-	$so_type = $_SESSION['Items']->so_type;
+    $_SESSION['box_details'] = $_SESSION['Items']->line_items;
 
 	$ret = $_SESSION['Items']->write(1);
+
 	if ($ret == -1)
 	{
 		display_error(_("The entered reference is already in use."));
@@ -525,7 +533,7 @@ if (isset($_POST['ProcessOrder']) && can_process()) {
 		if ($modified) {
 			if ($trans_type == ST_SALESQUOTE)
 				meta_forward($_SERVER['PHP_SELF'], "UpdatedQU=$trans_no");
-			else	
+			else
 				meta_forward($_SERVER['PHP_SELF'], "UpdatedID=$trans_no");
 		} elseif ($trans_type == ST_SALESORDER) {
 			meta_forward($_SERVER['PHP_SELF'], "AddedID=$trans_no");
@@ -536,7 +544,8 @@ if (isset($_POST['ProcessOrder']) && can_process()) {
 		} else {
 			meta_forward($_SERVER['PHP_SELF'], "AddedDN=$trans_no&Type=$so_type");
 		}
-	}	
+	}
+    unset($_SESSION['box_details']);
 }
 
 //--------------------------------------------------------------------------------
@@ -544,7 +553,7 @@ if (isset($_POST['ProcessOrder']) && can_process()) {
 function check_item_data()
 {
 	global $SysPrefs;
-	
+
 	$is_inventory_item = is_inventory_item(get_post('stock_id'));
 	if(!get_post('stock_id_text', true)) {
 		display_error( _("Item description cannot be empty."));
@@ -582,7 +591,7 @@ function check_item_data()
 			$std_cost = $curr . " " . number_format2($cost, $dec);
 		}
 		display_warning(sprintf(_("Price %s is below Standard Cost %s"), $price, $std_cost));
-	}	
+	}
 	return true;
 }
 
@@ -619,8 +628,9 @@ function handle_new_item()
 	if (!check_item_data()) {
 			return;
 	}
-	add_to_order($_SESSION['Items'], get_post('stock_id'), input_num('qty'),
-		input_num('price'), input_num('Disc') / 100, get_post('stock_id_text'));
+
+        add_to_order($_SESSION['Items'], get_post('stock_id'), input_num('qty'),
+		input_num('price'), input_num('Disc') / 100, get_post('stock_id_text'),get_post('box_id'));
 
 	unset($_POST['_stock_id_edit'], $_POST['stock_id']);
 	page_modified();
@@ -642,7 +652,7 @@ function  handle_cancel_order()
 		submenu_option(_("Enter a New Sales Invoice"),	"/sales/sales_order_entry.php?NewInvoice=1");
 	} elseif ($_SESSION['Items']->trans_type == ST_SALESQUOTE)
 	{
-		if ($_SESSION['Items']->trans_no != 0) 
+		if ($_SESSION['Items']->trans_no != 0)
 			delete_sales_order(key($_SESSION['Items']->trans_no), $_SESSION['Items']->trans_type);
 		display_notification(_("This sales quotation has been cancelled as requested."), 1);
 		submenu_option(_("Enter a New Sales Quotation"), "/sales/sales_order_entry.php?NewQuotation=Yes");
@@ -672,7 +682,7 @@ function  handle_cancel_order()
 //--------------------------------------------------------------------------------
 
 function create_cart($type, $trans_no)
-{ 
+{
 	global $Refs, $SysPrefs;
 
 	if (!$SysPrefs->db_ok) // create_cart is called before page() where the check is done
@@ -707,6 +717,7 @@ function create_cart($type, $trans_no)
 		$_SESSION['Items'] = $doc;
 	} else
     {
+
         $_SESSION['Items'] = new Cart($type, array($trans_no));
     }
 
@@ -773,15 +784,16 @@ hidden('cart_id');
 $customer_error = display_order_header($_SESSION['Items'], !$_SESSION['Items']->is_started(), $idate);
 
 if ($customer_error == "") {
-	start_table(TABLESTYLE, "width='80%'", 10);
-	echo "<tr><td>";
-	display_order_summary($orderitems, $_SESSION['Items'], true);
-	echo "</td></tr>";
-	echo "<tr><td>";
-	display_delivery_details($_SESSION['Items']);
-	echo "</td></tr>";
-	end_table(1);
+    start_table(TABLESTYLE, "width='80%'", 10);
+    echo "<tr><td>";
+    display_order_summary($orderitems, $_SESSION['Items'], true);
+    echo "</td></tr>";
+    echo "<tr><td style='display: flex'>";
+    display_delivery_details($_SESSION['Items']);
 
+    display_delivery_details_($_SESSION['Items']);
+    echo "</td></tr>";
+    end_table(1);
 
 	if ($_SESSION['Items']->trans_no == 0) {
 		submit_center_first('ProcessOrder', $porder,

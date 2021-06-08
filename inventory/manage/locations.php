@@ -57,8 +57,7 @@ if ($Mode=='ADD_ITEM' || $Mode=='UPDATE_ITEM')
 	{
     	if ($selected_id != -1) 
     	{
-    
-    		update_item_location($selected_id, $_POST['location_name'], $_POST['delivery_address'],
+    	    update_item_location($selected_id, $_POST['location_name'], $_POST['delivery_address'],
 				$_POST['phone'], $_POST['phone2'], $_POST['fax'], $_POST['email'], $_POST['contact'], check_value('fixed_asset'));
 			display_notification(_('Selected location has been updated'));
     	} 
@@ -66,8 +65,7 @@ if ($Mode=='ADD_ITEM' || $Mode=='UPDATE_ITEM')
     	{
     
     	/*selected_id is null cos no item selected on first time round so must be adding a	record must be submitting new entries in the new Location form */
-    	
-    		add_item_location($_POST['loc_code'], $_POST['location_name'], $_POST['delivery_address'], 
+    		add_item_location($_POST['loc_code'], $_POST['location_name'], $_POST['delivery_address'],
 				$_POST['phone'], $_POST['phone2'], $_POST['fax'], $_POST['email'], $_POST['contact'], check_value('fixed_asset'));
 			display_notification(_('New location has been added'));
     	}
@@ -183,6 +181,7 @@ hidden("fixed_asset");
 $_POST['email'] = "";
 if ($selected_id != -1) 
 {
+
 	//editing an existing Location
 
  	if ($Mode == 'Edit') {

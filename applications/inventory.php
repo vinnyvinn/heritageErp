@@ -46,6 +46,8 @@ class inventory_app extends application
 			"inventory/manage/sales_kits.php?", 'SA_SALESKIT', MENU_MAINTENANCE);
 		$this->add_lapp_function(2, _("Item &Categories"),
 			"inventory/manage/item_categories.php?", 'SA_ITEMCATEGORY', MENU_MAINTENANCE);
+        $this->add_lapp_function(2, _("Add Boxes"),
+            "inventory/manage/flower_boxes.php?", 'SA_ITEMCATEGORY', MENU_MAINTENANCE);
 		$this->add_rapp_function(2, _("Inventory &Locations"),
 			"inventory/manage/locations.php?", 'SA_INVENTORYLOCATION', MENU_MAINTENANCE);
 		$this->add_rapp_function(2, _("&Units of Measure"),

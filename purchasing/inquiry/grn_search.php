@@ -110,6 +110,7 @@ function check_overdue($row)
 $sql = get_sql_for_grn_search(get_post('OrdersAfterDate'), get_post('OrdersToDate'), get_post('supplier_id'), get_post('StockLocation'),
 	$_POST['order_number'], get_post('SelectStockFromList'));
 
+
 //$result = db_query($sql,"No orders were returned");
 
 /*show a table of the orders returned by the sql */

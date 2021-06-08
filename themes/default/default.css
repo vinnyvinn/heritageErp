@@ -48,7 +48,6 @@ select {
 
 .lot_item{
  color: #dd7777 !important;
- margin-right: 86%;
 }
 option.inactive {
 	text-decoration: line-through;
@@ -672,4 +671,7 @@ div.note_msg {
 #title {
 	margin-bottom: 10px;
 	width: 100%;
+}
+.titletext,.ajaxsubmit,td a {
+	font-size: 18px !important;
 }

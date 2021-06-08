@@ -166,6 +166,13 @@ function key_in_foreign_table($id, $tables, $stdkey)
 	return $count[0];
 }
 
+function id_in_foreign_table($box_id){
+  $sql = "SELECT * FROM ".TB_PREF."sales_order_details WHERE box_id=".db_escape($box_id);
+  $res = db_query($sql,"Item could be fetched");
+
+  $query = db_fetch($res);
+  return $query;
+}
 //---------------------------------------------------------------------------------------------
 //
 // Resets $theme references in users records to 'default'.

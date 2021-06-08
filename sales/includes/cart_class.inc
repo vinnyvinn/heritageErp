@@ -94,7 +94,7 @@ class Cart
 	//
 	function __construct($type, $trans_no=0, $prepare_child=false) {
 		/*Constructor function initialises a new shopping cart */
-        error_log('here');
+
 		$this->line_items = array();
 
 		$this->sales_type = "";
@@ -107,8 +107,6 @@ class Cart
 		$this->pos = get_sales_point(user_pos());
 		$this->read($type, $trans_no, $prepare_child);
     	$this->cart_id = uniqid('');
-
-		error_log(print_r($this->line_items,true));
 	}
 
 	/*
@@ -302,6 +300,7 @@ class Cart
 				return -1;
 			}
 		}
+
 		if (count($this->src_docs) == 0 && ($this->trans_type == ST_SALESINVOICE || $this->trans_type == ST_CUSTDELIVERY) && !$this->is_prepaid()) {
 			// this is direct document - first add parent
 			$ref = $this->reference;
@@ -322,12 +321,25 @@ class Cart
 			$this->dimension_id = $dimension_id;
 			$this->dimension2_id = $dimension2_id;
 		}
+
 		$this->reference = @html_entity_decode($this->reference, ENT_QUOTES);
 		$this->Comments = @html_entity_decode($this->Comments, ENT_QUOTES);
+
 		foreach($this->line_items as $lineno => $line) {
 			$this->line_items[$lineno]->stock_id = @html_entity_decode($line->stock_id, ENT_QUOTES);
 			$this->line_items[$lineno]->item_description = @html_entity_decode($line->item_description, ENT_QUOTES);
 		}
+
+        foreach($this->line_items as $lineno => $line) {
+            foreach ($_SESSION['box_details'] as $item){
+                if ($item->stock_id == $line->stock_id){
+                    $this->line_items[$lineno]->box_id = $item->box_id;
+                    $this->line_items[$lineno]->quantity_dispatched = isset(get_box_type($line->box_id)['quantity']) ? ceil($line->quantity/get_box_type($line->box_id)['quantity']) : 0;
+                    $this->line_items[$lineno]->quantity = $this->line_items[$lineno]->quantity_dispatched;
+                }
+            }
+        }
+
             switch($this->trans_type) {
 			case ST_SALESINVOICE:
 				$ret = write_sales_invoice($this); break;
@@ -397,11 +409,11 @@ class Cart
 			$this->freight_cost = $freight_cost;
 	}
 
-	function add_to_cart($line_no, $stock_id, $qty, $price, $disc, $qty_done=0, $standard_cost=0, $description=null, $id=0, $src_no=0,
+	function add_to_cart($line_no, $stock_id, $qty, $price, $disc, $qty_done=0, $standard_cost=0, $description=null,$box_id=null, $id=0, $src_no=0,
 		$src_id=0)
 	{
 		$line = new line_details($stock_id, $qty, $price, $disc,
-			$qty_done,  $standard_cost, $description, $id, $src_no, $src_id);
+			$qty_done,  $standard_cost, $description, $box_id,$id, $src_no, $src_id);
 
 		if ($line->valid) {
 			$this->line_items[$line_no] = $line;
@@ -595,10 +607,15 @@ class Cart
 		{
 			if (has_stock_holding($line_item->mb_flag))
 			{
-				if (!$this->trans_no) // new delivery
-					$qtys[$line_item->stock_id]['qty'] = $line_item->qty_dispatched + @$qtys[$line_item->stock_id]['qty'];
-				else	// DN modification: check change in quantity
-					$qtys[$line_item->stock_id]['qty'] = ($line_item->qty_dispatched-$line_item->qty_old) + @$qtys[$line_item->stock_id]['qty'];
+                $qty_required = isset(get_box_type($line_item->box_id)['quantity']) ? ceil($line_item->qty_dispatched/get_box_type($line_item->box_id)['quantity']) : $line_item->qty_dispatched;
+                // new delivery
+				if (!$this->trans_no) {
+                   $qtys[$line_item->stock_id]['qty'] = $qty_required + @$qtys[$line_item->stock_id]['qty'];
+                }
+                  // DN modification: check change in quantity
+				else{
+                $qtys[$line_item->stock_id]['qty'] = ($qty_required-$line_item->qty_old) + @$qtys[$line_item->stock_id]['qty'];
+                }
 				$qtys[$line_item->stock_id]['line'] = $line_no;
 			}
 		}
@@ -702,13 +719,13 @@ class line_details
 	var $qty_done;
 	var $qty_dispatched;
 	var $qty_old = 0;
+	var $box_id;
 
 
 	function __construct($stock_id, $qty, $prc, $disc_percent,
-		$qty_done, $standard_cost, $description, $id=0, $src_no=0, $src_id=0)
+		$qty_done, $standard_cost, $description, $box_id=null,$id=0, $src_no=0, $src_id=0)
 	{
 	/* Constructor function to add a new LineDetail object with passed params */
-
 		$this->id = $id;
 		$this->src_no = $src_no;
 		$this->src_id = $src_id;
@@ -724,6 +741,7 @@ class line_details
 			$this->item_description = $item_row["description"];
 		else
 		$this->item_description = $description;
+		$this->box_id = $box_id;
 		$this->tax_type = $item_row["tax_type_id"];
 		$this->tax_type_name = $item_row["tax_type_name"];
 		$this->stock_id = $stock_id;

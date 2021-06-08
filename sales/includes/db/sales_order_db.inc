@@ -57,13 +57,13 @@ function add_sales_order(&$order)
 	{
 		if ($SysPrefs->loc_notification() == 1 && is_inventory_item($line->stock_id))
 			$loc = calculate_reorder_level($order->Location, $line, $st_ids, $st_names, $st_num, $st_reorder); 
-
-		$sql = "INSERT INTO ".TB_PREF."sales_order_details (order_no, trans_type, stk_code, description, unit_price, quantity, discount_percent) VALUES (";
+        $box = (isset($line->box_id) && !empty($line->box_id)) ? $line->box_id : 0;
+		$sql = "INSERT INTO ".TB_PREF."sales_order_details (order_no, trans_type, stk_code, description, unit_price, quantity, discount_percent,box_id) VALUES (";
 		$sql .= $order_no . ",".$order->trans_type .
 				",".db_escape($line->stock_id).", "
 				.db_escape($line->item_description).", $line->price,
 				$line->quantity,
-				$line->discount_percent)";
+				$line->discount_percent,$box)";
 		db_query($sql, "order Details Cannot be Added");
 
 	// Now mark quotation line as processed
@@ -259,7 +259,7 @@ function get_sales_order_header($order_no, $trans_type)
 		AND sorder.trans_type = " . db_escape($trans_type) ."
 		AND sorder.order_no = " . db_escape($order_no );
 
-	$result = db_query($sql, "order Retreival");
+	$result = db_query($sql, "order Retrieval");
 
 	$num = db_num_rows($result);
 	if ($num > 1)
@@ -281,6 +281,7 @@ function get_sales_order_details($order_no, $trans_type) {
 	$sql = "SELECT id, stk_code, unit_price,
 				line.description,
 				line.quantity,
+				line.box_id,
 				discount_percent,
 				qty_sent as qty_done,
 				item.units,
@@ -291,6 +292,7 @@ function get_sales_order_details($order_no, $trans_type) {
 			WHERE line.stk_code = item.stock_id
 				AND order_no =".db_escape($order_no) 
 				." AND trans_type = ".db_escape($trans_type) . " ORDER BY id";
+
 
 	return db_query($sql, "Retreive order Line Items");
 }
@@ -335,12 +337,13 @@ function read_sales_order($order_no, &$order, $trans_type)
 
 	if (db_num_rows($result) > 0)
 	{
+
 		$line_no=0;
 		while ($myrow = db_fetch($result))
 		{
 			$order->add_to_cart($line_no,$myrow["stk_code"],$myrow["quantity"],
 				$myrow["unit_price"], $myrow["discount_percent"],
-				$myrow["qty_done"], $myrow["material_cost"], $myrow["description"], $myrow["id"] );
+				$myrow["qty_done"], $myrow["material_cost"], $myrow["description"],$myrow["box_id"], $myrow["id"] );
 		$line_no++;
 		}
 	}
@@ -614,9 +617,10 @@ function get_sql_for_sales_lot_view($trans_type, $trans_no, $filter,
 		FROM ".TB_PREF."sales_order_details as line
 		JOIN  ".TB_PREF."stock_master as stock ON stock.stock_id = line.stk_code
 		JOIN  ".TB_PREF."sales_orders as sorder ON sorder.order_no = line.order_no
-		JOIN  ".TB_PREF."lot_transactions as lot ON lot.item_code = line.stk_code
 		LEFT JOIN (SELECT trans_no_to, sum(amt) ord_payments FROM ".TB_PREF."cust_allocations WHERE trans_type_to=".ST_SALESORDER." GROUP BY trans_no_to)
 			 allocs ON sorder.trans_type=".ST_SALESORDER." AND allocs.trans_no_to=sorder.order_no
+			 LEFT JOIN (SELECT id,po_detail_item,item_code FROM ".TB_PREF."lot_transactions WHERE type='grv' GROUP BY id)
+			 lot ON lot.item_code = line.stk_code
 		LEFT JOIN (SELECT order_, sum(prep_amount) inv_payments	FROM ".TB_PREF."debtor_trans WHERE type=".ST_SALESINVOICE." GROUP BY order_)
 				 inv ON sorder.trans_type=".ST_SALESORDER." AND inv.order_=sorder.order_no,"
         .TB_PREF."debtors_master as debtor, "
@@ -628,8 +632,7 @@ function get_sql_for_sales_lot_view($trans_type, $trans_no, $filter,
 			AND sorder.branch_code = branch.branch_code
 			AND line.qty_sent > 0
 			AND line.inv_issued =0			
-			AND stock.lot_item =1			
-			AND lot.type ='grv'			
+			AND stock.lot_item =1		
 			AND debtor.debtor_no = branch.debtor_no";
 
     if (isset($trans_no) && $trans_no != "")
@@ -683,11 +686,13 @@ function get_sql_for_sales_lot_view($trans_type, $trans_no, $filter,
 
     $sql .= " GROUP BY line.id";
 
-//    $q = db_query($sql,'Query error');
-//    while ($res = db_fetch($q)){
-//        error_log(print_r($res,true));
-//    }
-
+    error_log("start--");
+    $q = db_query($sql,'Query error');
+    while ($res = db_fetch($q)){
+        error_log(print_r($res,true));
+    }
+    //error_log(print_r($sql,true));
+error_log("end----------");
 
     return $sql;
 }

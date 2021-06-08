@@ -176,6 +176,15 @@ function check_c17_number($num)
     return db_fetch_assoc($result)['c17_entry_number'];
 }
 
+function get_debtor($order_no){
+    $sql = "SELECT * FROM ".TB_PREF."debtor_trans  WHERE order_=".db_escape($order_no);
+    $result = db_query($sql,"an item could not be retreived");
+    return db_fetch($result);
+}
+function update_debtor($order,$c17,$ecs){
+$sql = "UPDATE ".TB_PREF."debtor_trans SET c17_entry_number=".db_escape($c17).",ecs_number=".db_escape($ecs)." WHERE order_=".db_escape($order)."";
+db_query($sql,'update record failed.');
+}
 function check_ecs_number($num)
 {
     $sql = "SELECT ecs_number FROM ".TB_PREF."debtor_trans  WHERE ecs_number=".db_escape($num);

@@ -26,7 +26,13 @@ page(_($help_context = "Issuance Lot Item"), false, false, "", $js);
 
 //---------------------------------------------------------------------------------------------------------------
 if (isset($_GET['invtem'])){
-    $_SESSION['INVOICE'] =  get_sql_for_sales_details($_GET['invtem']);
+    unset($_SESSION['INVOICE']);
+    $_SESSION['INVOICE'] = array();
+    $result =  get_sql_for_sales_details($_GET['NewInvoice']);
+
+    while ($row = db_fetch($result)){
+    array_push($_SESSION['INVOICE'],$row);
+    }
 
     $_SESSION['LOT'] =  po_detail($_GET['po_item']);
 }
@@ -60,19 +66,26 @@ function display_lot_issue_item()
         $po = $_SESSION['LOT'];
     }
 
-    hidden('inv_item',$ln_itm['inv_item']);
-    hidden('qty_sent',$ln_itm['qty_sent']);
-    hidden('doc_no',$ln_itm['reference']);
-    hidden('item_code',$ln_itm['stk_code']);
-    hidden('lot_number',$po['lot_number']);
+   $items =  get_sql_for_sales_details($_GET['NewInvoice']);
+   $order = get_sale_order($_GET['NewInvoice']);
 
-    alt_table_row_color($k);
-    label_cell($ln_itm['stk_code']);
-    label_cell($ln_itm['description']);
-    label_cell($ln_itm['qty_sent']);
-    qty_cells(null, 'quantity_out', $_POST['quantity_out'], null, null, '');
-    label_cell($po['lot_number']);
-    label_cell(date('d-m-Y',strtotime($po['expiry_date'])));
+    foreach ($_SESSION['INVOICE'] as $row){
+        hidden('inv_item',$row['inv_item']);
+        hidden('qty_sent',$row['qty_sent']);
+        hidden('doc_no',$order['reference']);
+        hidden('item_code',$row['stk_code']);
+        hidden('lot_number',$row['lot_number']);
+
+        alt_table_row_color($k);
+        label_cell($row['stk_code']);
+        label_cell($row['description']);
+        label_cell($row['qty_sent']);
+        $dec = get_qty_dec($row['stk_code']);
+        qty_cells(null, $row['lot_id'], number_format2($row['qty_out'], $dec), "align=right", null, $dec);
+        label_cell($row['lot_number']);
+        label_cell(date('d-m-Y',strtotime($row['expiry_date'])));
+    }
+
     end_row();
 
     end_table();
@@ -140,10 +153,28 @@ function can_process()
 function process_receive_lot()
 {
     global $path_to_root, $Ajax;
-    if (!can_process())
-        return;
 
-    issueLotItem( $_POST['quantity_out'],$_POST['lot_number'],$_POST['inv_item'],$_POST['item_code'],$_POST['doc_no']);
+    $total_qty = 0;
+    $qty_arr = array();
+    $inv_qty = 0;
+    foreach ($_SESSION['INVOICE'] as $key => $line){
+        $_SESSION['INVOICE'][$key]['qty_out'] = input_num($line['lot_id']);
+        if (!isset($qty_arr[$line['inv_item']])){
+           $qty_arr[$line['inv_item']] = $line['qty_sent'];
+            $inv_qty += $line['qty_sent'];
+        }
+         $total_qty += input_num($line['lot_id']);
+    }
+
+    if ($total_qty != $inv_qty){
+        display_error(_("Quantity must be equal to Invoice Quantity."));
+        return false;
+    }
+
+    foreach ($_SESSION['INVOICE'] as $item){
+     issueLotItem( $item['qty_out'],$item['lot_number'],$item['inv_item'],$item['stk_code'],get_sale_order($item['order_no'])['reference']);
+    }
+
     meta_forward('/sales/inquiry/orders_search.php?OutstandingOnly=1');
 }
 

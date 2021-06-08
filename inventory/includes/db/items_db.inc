@@ -10,17 +10,16 @@
     See the License here <http://www.gnu.org/licenses/gpl-3.0.html>.
 ***********************************************************************/
 
-function update_item($stock_id, $description,$type_id,$type, $long_description, $category_id,
+function update_item($stock_id, $description, $long_description, $category_id,
 	$tax_type_id, $units='', $mb_flag='', $sales_account, $inventory_account, 
 	$cogs_account, 	$adjustment_account, $wip_account, $dimension_id, 
 	$dimension2_id, $no_sale, $editable, $no_purchase,$lot_item,
 	$depreciation_method = 'D', $depreciation_rate=100, $depreciation_factor=1,
 	$depreciation_start=null, $fa_class_id=null)
 {
+    error_log('stock id--> '.$stock_id);
 	$sql = "UPDATE ".TB_PREF."stock_master SET long_description=".db_escape($long_description).",
-		description=".db_escape($description).",	
-		type_id=".db_escape($type_id).",	
-		type=".db_escape($type).",	
+		description=".db_escape($description).",		
 		category_id=".db_escape($category_id).",
 		sales_account=".db_escape($sales_account).",
 		inventory_account=".db_escape($inventory_account).",
@@ -52,25 +51,32 @@ function update_item($stock_id, $description,$type_id,$type, $long_description, 
 
 	 $sql .= " WHERE stock_id=".db_escape($stock_id);
 
+	error_log('update item---');
+	error_log(print_r($sql,true));
+	error_log('****updating++++');
     db_query($sql, "The item could not be updated");
 
 	update_item_code(-1, $stock_id, $stock_id, $description, $category_id, 1, 0);
 }
 
-function add_item($stock_id, $description,$code,$variety,$color,$size, $type_id,$type,$long_description, $category_id,
+function add_item($stock_id, $description,$code,$variety,$color,$size, $type_id,$type,$item_type,$long_description, $category_id,
 	$tax_type_id, $units, $mb_flag,	$sales_account, $inventory_account, 
 	$cogs_account, $adjustment_account,	$wip_account, $dimension_id, 
 	$dimension2_id, $no_sale, $editable, $no_purchase,$lot_item,
 	$depreciation_method='D', $depreciation_rate=100,  $depreciation_factor=1, $depreciation_start=null,
 	$fa_class_id=null)
 {
+    $variety = !empty($variety)?$variety:0;
+    $color = !empty($color)?$color:0;
+    $size = !empty($size)?$size:0;
+    $type_id = !empty($type_id)?$type_id:0;
 
-	$sql = "INSERT INTO ".TB_PREF."stock_master (stock_id, description, code,variety_id,color_id,size_id,type_id,type,long_description, category_id,
+	$sql = "INSERT INTO ".TB_PREF."stock_master (stock_id, description, code,variety_id,color_id,size_id,type_id,type,item_type_id,long_description, category_id,
 		tax_type_id, units, mb_flag, sales_account, inventory_account, cogs_account,
 		adjustment_account, wip_account, dimension_id, dimension2_id, no_sale, no_purchase,lot_item, editable,
 		depreciation_method, depreciation_rate, depreciation_factor"
 		.(isset($depreciation_start) ? ", depreciation_start, depreciation_date, fa_class_id" : "")
-		.") VALUES (".db_escape($stock_id).", ".db_escape($description).", ".db_escape($code).", ".db_escape($variety).", ".db_escape($color).", ".db_escape($size).", ".db_escape($type_id).", ".db_escape($type).", ".db_escape($long_description).",
+		.") VALUES (".db_escape($stock_id).", ".db_escape($description).", ".db_escape($code).", ".db_escape($variety).", ".db_escape($color).", ".db_escape($size).", ".db_escape($type_id).", ".db_escape($type).", ".db_escape($item_type).", ".db_escape($long_description).",
 		".db_escape($category_id).", ".db_escape($tax_type_id).", "
 		.db_escape($units).", ".db_escape($mb_flag).",
 		".db_escape($sales_account).", ".db_escape($inventory_account)
@@ -154,6 +160,20 @@ function get_variety($id)
 function get_color($id)
 {
 	$sql = "SELECT name FROM ".TB_PREF."colors  WHERE id=".db_escape($id);
+	 $result = db_query($sql,"an item could not be retreived");
+
+	return db_fetch_assoc($result);
+}
+function get_flower_type($id)
+{
+	$sql = "SELECT name FROM ".TB_PREF."FlowerType  WHERE id=".db_escape($id);
+	 $result = db_query($sql,"an item could not be retreived");
+
+	return db_fetch_assoc($result);
+}
+function get_box_type($id)
+{
+     $sql = "SELECT * FROM ".TB_PREF."flower_boxes  WHERE id=".db_escape($id);
 	 $result = db_query($sql,"an item could not be retreived");
 
 	return db_fetch_assoc($result);

@@ -41,7 +41,7 @@ function display_heading($msg)
 
 function display_heading_($msg,$class='')
 {
-	echo "<center><span class='headingtext $class'>$msg</span></center>\n";
+	echo "<span class='headingtext $class'>$msg</span>\n";
 }
 
 function display_heading2($msg)

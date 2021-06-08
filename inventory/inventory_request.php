@@ -33,6 +33,7 @@ if (isset($_GET['NewRequest'])) {
 if (isset($_GET['transId'])){
     $_SESSION['REQUEST'] = get_stock_move($_GET['transId']);
     $_SESSION['trans_id'] = $_GET['transId'];
+
 }else{
     unset($_SESSION['REQUEST']);
 }

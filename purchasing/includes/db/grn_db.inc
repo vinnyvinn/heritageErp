@@ -175,11 +175,13 @@ function issueLotItem($qty,$lot_number,$inv_item,$item_code,$reference){
     $type = 'invoice';
     $sql = "INSERT INTO ".TB_PREF."lot_transactions (qty_out, lot_number, po_detail_item,item_code,doc_no,type) VALUES (
     ".db_escape($qty).", ".db_escape($lot_number).", ".db_escape($inv_item).", ".db_escape($item_code).", ".db_escape($reference).", ".db_escape($type).")";
-
     db_query($sql, "The item could not be added");
 
-    $sql = "UPDATE ".TB_PREF."sales_order_details SET inv_issued=1 WHERE id=$inv_item";
-    db_query($sql, "could not update sales order details");
+    $sql2 = "UPDATE ".TB_PREF."lot_transactions SET qty_out=$qty WHERE lot_number=".db_escape($lot_number)." AND type='grv'";
+    db_query($sql2, "The item could not be updated");
+
+    $sql3 = "UPDATE ".TB_PREF."sales_order_details SET inv_issued=1 WHERE id=$inv_item";
+    db_query($sql3, "could not update sales order details");
 }
 
 function checkLotItem($lot){

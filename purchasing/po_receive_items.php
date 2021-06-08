@@ -53,9 +53,10 @@ if ((!isset($_GET['PONumber']) || $_GET['PONumber'] == 0) && !isset($_SESSION['P
 	die (_("This page can only be opened if a purchase order has been selected. Please select a purchase order first."));
 }
 
+
 //--------------------------------------------------------------------------------------------------
 
-function display_po_receive_items()
+function  display_po_receive_items()
 {
 	div_start('grn_items');
     start_table(TABLESTYLE, "colspan=7 width='90%'");
@@ -72,9 +73,7 @@ function display_po_receive_items()
     {
        	foreach ($_SESSION['PO']->line_items as $ln_itm)
        	{
-
 			alt_table_row_color($k);
-
     		$qty_outstanding = $ln_itm->quantity - $ln_itm->qty_received;
 
  			if (!isset($_POST['Update']) && !isset($_POST['ProcessGoodsReceived']) && $ln_itm->receive_qty == 0)
@@ -285,15 +284,17 @@ if (isset($_POST['Update']) || isset($_POST['ProcessGoodsReceived']))
 
 	/* if update quantities button is hit page has been called and ${$line->line_no} would have be
  	set from the post to the quantity to be received in this receival*/
+
 	foreach ($_SESSION['PO']->line_items as $line)
 	{
+
 	 if( ($line->quantity - $line->qty_received)>0) {
 		$_POST[$line->line_no] = max($_POST[$line->line_no], 0);
 		if (!check_num($line->line_no))
 			$_POST[$line->line_no] = number_format2(0, get_qty_dec($line->stock_id));
 
 		if (!isset($_POST['DefaultReceivedDate']) || $_POST['DefaultReceivedDate'] == "")
-			$_POST['DefaultReceivedDate'] = new_doc_date();
+    		$_POST['DefaultReceivedDate'] = new_doc_date();
 
 		$_SESSION['PO']->line_items[$line->line_no]->receive_qty = input_num($line->line_no);
 
@@ -303,14 +304,15 @@ if (isset($_POST['Update']) || isset($_POST['ProcessGoodsReceived']))
 		}
 	 }
 	}
-	$Ajax->activate('grn_items');
+
+
+    $Ajax->activate('grn_items');
 }
 
 //--------------------------------------------------------------------------------------------------
 
 if (isset($_POST['ProcessGoodsReceived']))
 {
-
 	process_receive_po();
 }
 
